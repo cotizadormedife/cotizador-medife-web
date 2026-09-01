@@ -1,0 +1,180 @@
+:root {
+  --brand-orange: #e35205;
+  --brand-orange-hover: #c94903;
+  --brand-orange-focus-bg: #fffaf8;
+  --text-primary: #1a1a1a;
+  --text-neutral: #58575c;
+  --text-muted: #98989c;
+  --border-default: #cbcbcb;
+  --border-disabled: #e1e1e1;
+  --bg-disabled: #e1e1e1;
+  --radius-input: 8px;
+  --radius-button: 32px;
+  --radius-card: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--text-primary);
+  background: #ffffff;
+  -webkit-font-smoothing: antialiased;
+}
+
+input,
+select,
+button,
+textarea {
+  font-family: inherit;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-input);
+  font-size: 16px; /* evita zoom automático en iOS */
+  background: #ffffff;
+  min-height: 44px; /* target táctil mínimo recomendado */
+}
+
+input:hover,
+input:focus,
+select:hover,
+select:focus {
+  border-color: var(--brand-orange);
+  background: var(--brand-orange-focus-bg);
+  outline: none;
+}
+
+button {
+  cursor: pointer;
+  border-radius: var(--radius-button);
+  padding: 10px 18px;
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid var(--border-default);
+  background: #ffffff;
+  color: var(--text-primary);
+  min-height: 40px;
+}
+
+button:hover {
+  border-color: var(--brand-orange);
+  color: var(--brand-orange);
+}
+
+button[type="submit"],
+button.btn-primary {
+  border: none;
+  border-radius: var(--radius-button);
+  padding: 13px 22px;
+  font-weight: 700;
+  font-size: 15px;
+  background: var(--brand-orange);
+  color: #ffffff;
+  min-height: 48px;
+}
+
+button[type="submit"]:hover,
+button.btn-primary:hover {
+  background: var(--brand-orange-hover);
+  color: #ffffff;
+}
+
+button[type="submit"]:disabled,
+button.btn-primary:disabled {
+  background: var(--bg-disabled);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+button.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-neutral);
+}
+button.btn-ghost:hover {
+  color: var(--brand-orange);
+}
+
+a {
+  color: var(--brand-orange);
+}
+
+/* ── Tarjeta genérica ─────────────────────────────────────────── */
+.card {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
+  padding: 20px;
+  margin-bottom: 20px;
+  background: #ffffff;
+}
+
+/* ── Grupo de opciones tipo "chip" (reemplaza radios sueltos) ──── */
+.option-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.option-card {
+  flex: 1 1 160px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-input);
+  padding: 13px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  min-height: 44px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.option-card:hover {
+  border-color: var(--brand-orange);
+}
+.option-card:has(input:checked) {
+  border-color: var(--brand-orange);
+  background: var(--brand-orange-focus-bg);
+  font-weight: 600;
+}
+.option-card input {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--brand-orange);
+}
+
+/* ── Layout responsive del cotizador ─────────────────────────── */
+.quote-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) 1fr;
+  gap: 28px;
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .quote-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+}
