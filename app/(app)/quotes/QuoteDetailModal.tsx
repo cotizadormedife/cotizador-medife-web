@@ -15,7 +15,15 @@ export default function QuoteDetailActions({
   quoteId: string;
   result: QuoteResult;
   input: any;
-  meta: { fecha: string; vendedor: string; asociado: string; region: string; categoria: string; filial: string };
+  meta: {
+    fecha: string;
+    vendedor: string;
+    asociado: string;
+    region: string;
+    categoria: string;
+    filial: string;
+    vigencia?: string;
+  };
 }) {
   const [open, setOpen] = useState(false);
 
@@ -75,7 +83,19 @@ export default function QuoteDetailActions({
                 Cerrar
               </button>
             </div>
-            <QuoteResults result={result} />
+            <QuoteResults
+              result={result}
+              meta={{
+                asociado: meta.asociado,
+                vendedor: meta.vendedor,
+                fecha: meta.fecha,
+                region: meta.region,
+                filial: meta.filial,
+                categoria: meta.categoria,
+                procedencia: input?.procedencia === "comprobable" ? "Comprobable" : "Sin procedencia",
+                vigencia: meta.vigencia === "actual" ? "Mes actual" : meta.vigencia === "siguiente" ? "Mes siguiente" : undefined,
+              }}
+            />
           </div>
         </div>
       )}

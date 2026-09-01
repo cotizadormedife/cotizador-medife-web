@@ -25,7 +25,7 @@ export default async function AdminQuotesPage({
   let query = supabase
     .from("quotes")
     .select(
-      "id, created_at, asociado_nombre, vendedor_nombre, region_code, filial_code, categoria, created_by, input, output, profiles!quotes_created_by_fkey(nombre, apellido, email)"
+      "id, created_at, asociado_nombre, vendedor_nombre, region_code, filial_code, categoria, vigencia, created_by, input, output, profiles!quotes_created_by_fkey(nombre, apellido, email)"
     );
 
   if (desde) query = query.gte("created_at", desde);
@@ -121,6 +121,7 @@ export default async function AdminQuotesPage({
                         region: q.region_code,
                         categoria: q.categoria,
                         filial: q.filial_code,
+                        vigencia: q.vigencia,
                       }}
                     />
                   </td>

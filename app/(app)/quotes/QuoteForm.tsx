@@ -140,7 +140,7 @@ export default function QuoteForm({
 
   return (
     <div className="quote-layout">
-      <div>
+      <div className="print-hidden">
         <div className="card">
           <h2 style={{ fontSize: 18, margin: "0 0 16px" }}>Configuración</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -317,7 +317,21 @@ export default function QuoteForm({
             {state.error}
           </p>
         )}
-        {state && state.ok && <QuoteResults result={state.result} />}
+        {state && state.ok && (
+          <QuoteResults
+            result={state.result}
+            meta={{
+              asociado,
+              vendedor,
+              fecha: new Date().toLocaleDateString("es-AR"),
+              region: regions.find((r) => r.code === region)?.nombre ?? region,
+              filial: filialesRegion.find((f) => f.code === filial)?.nombre ?? filial,
+              categoria,
+              procedencia: procedencia === "comprobable" ? "Comprobable" : "Sin procedencia",
+              vigencia: vigencia === "actual" ? "Mes actual" : "Mes siguiente",
+            }}
+          />
+        )}
       </div>
     </div>
   );

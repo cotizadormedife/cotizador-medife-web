@@ -178,3 +178,56 @@ a {
     border-radius: 12px;
   }
 }
+
+/* ── Impresión / PDF de cotización ──────────────────────────── */
+.print-only-row {
+  display: none;
+}
+.print-only-block {
+  display: none;
+}
+.rdg-grid {
+  display: none;
+}
+@media print {
+  .print-hidden {
+    display: none !important;
+  }
+  .plan-col-hidden {
+    display: none !important;
+  }
+  .print-only-row {
+    display: table-row !important;
+  }
+  .print-only-block {
+    display: block !important;
+  }
+  .quote-layout {
+    grid-template-columns: 1fr;
+  }
+  .rdg-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px 16px;
+    margin: 4px 0 16px;
+  }
+  .rdg-item {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .rdg-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-neutral);
+  }
+  .rdg-value {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  body {
+    background: #fff;
+  }
+}

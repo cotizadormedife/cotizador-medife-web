@@ -9,7 +9,7 @@ export default async function HistoryPage() {
 
   const { data: quotes } = await supabase
     .from("quotes")
-    .select("id, created_at, vendedor_nombre, asociado_nombre, region_code, filial_code, categoria, input, output")
+    .select("id, created_at, vendedor_nombre, asociado_nombre, region_code, filial_code, categoria, vigencia, input, output")
     .eq("created_by", profile.id)
     .order("created_at", { ascending: false });
 
@@ -54,6 +54,7 @@ export default async function HistoryPage() {
                           region: q.region_code,
                           categoria: q.categoria,
                           filial: q.filial_code,
+                          vigencia: q.vigencia,
                         }}
                       />
                     </td>
