@@ -39,7 +39,7 @@ export async function registerAction(
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { nombre, apellido, celular, empresa }, emailRedirectTo: `${siteUrl}/` },
+    options: { data: { nombre, apellido, celular, empresa }, emailRedirectTo: `${siteUrl}/confirm` },
   });
 
   if (error) {
