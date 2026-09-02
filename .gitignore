@@ -11,3 +11,4 @@ npm-debug.log*
 .vercel
 .env*
 !.env.local.example
+tsconfig.tsbuildinfo

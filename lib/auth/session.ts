@@ -8,6 +8,8 @@ export type Profile = {
   apellido: string | null;
   celular: string | null;
   empresa: string | null;
+  empresa_id: string | null;
+  empresa_nombre: string | null;
   role: "vendedor" | "admin" | "super_admin";
   status: "pending_profile" | "pending_approval" | "approved" | "rejected";
   disabled_at: string | null;
@@ -22,11 +24,15 @@ export async function getCurrentProfile(): Promise<Profile | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, email, nombre, apellido, celular, empresa, role, status, disabled_at")
+    .select("id, email, nombre, apellido, celular, empresa, empresa_id, empresas(nombre), role, status, disabled_at")
     .eq("id", user.id)
     .single();
 
-  return (profile as Profile) ?? null;
+  if (!profile) return null;
+  const row = profile as unknown as Record<string, unknown>;
+  const empresas = row.empresas as { nombre: string } | { nombre: string }[] | null;
+  const empresa_nombre = Array.isArray(empresas) ? empresas[0]?.nombre ?? null : empresas?.nombre ?? null;
+  return { ...row, empresa_nombre } as unknown as Profile;
 }
 
 // Para usar en layouts server-side de rutas que requieren un usuario

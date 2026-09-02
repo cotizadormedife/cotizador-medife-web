@@ -52,11 +52,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <>
                 <NavLink href="/admin/users">Usuarios</NavLink>
                 <NavLink href="/admin/quotes">Todas las cotizaciones</NavLink>
+                <NavLink href="/admin/roles">Roles</NavLink>
               </>
             )}
             {profile.role === "super_admin" && (
               <>
-                <NavLink href="/super-admin/roles">Roles</NavLink>
+                <NavLink href="/super-admin/empresas">Empresas</NavLink>
                 <NavLink href="/super-admin/price-lists">Precios</NavLink>
               </>
             )}

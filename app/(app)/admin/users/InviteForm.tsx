@@ -2,15 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { inviteUserAction, type InviteUserState } from "./actions";
+import type { Empresa } from "@/lib/empresas";
 
 const labelStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 6, fontSize: 13, fontWeight: 600 };
 
-export default function InviteForm() {
+export default function InviteForm({ empresas, lockedEmpresa }: { empresas: Empresa[]; lockedEmpresa?: Empresa }) {
   const [email, setEmail] = useState("");
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
   const [celular, setCelular] = useState("");
-  const [empresa, setEmpresa] = useState("");
+  const [empresaId, setEmpresaId] = useState(lockedEmpresa?.id ?? empresas[0]?.id ?? "");
   const [result, setResult] = useState<InviteUserState | null>(null);
   const [copied, setCopied] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -19,14 +20,13 @@ export default function InviteForm() {
     setResult(null);
     setCopied(false);
     startTransition(async () => {
-      const res = await inviteUserAction({ email, nombre, apellido, celular, empresa });
+      const res = await inviteUserAction({ email, nombre, apellido, celular, empresa_id: empresaId });
       setResult(res);
       if (res.ok) {
         setEmail("");
         setNombre("");
         setApellido("");
         setCelular("");
-        setEmpresa("");
       }
     });
   }
@@ -66,7 +66,17 @@ export default function InviteForm() {
         </label>
         <label style={{ ...labelStyle, flex: "1 1 200px" }}>
           Empresa / Broker
-          <input value={empresa} onChange={(e) => setEmpresa(e.target.value)} />
+          {lockedEmpresa ? (
+            <input value={lockedEmpresa.nombre} disabled />
+          ) : (
+            <select value={empresaId} onChange={(e) => setEmpresaId(e.target.value)}>
+              {empresas.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.nombre}
+                </option>
+              ))}
+            </select>
+          )}
         </label>
       </div>
       <button type="button" className="btn-primary" onClick={submit} disabled={pending} style={{ marginTop: 16 }}>

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
+import { isMedife } from "@/lib/empresas";
 
 async function logAction(actorId: string, action: string, targetId: string) {
   const supabase = createServiceClient();
@@ -12,8 +13,21 @@ async function logAction(actorId: string, action: string, targetId: string) {
     .insert({ actor_id: actorId, action, target_type: "profile", target_id: targetId });
 }
 
+// Un Admin de una empresa distinta de Medife solo puede gestionar usuarios
+// de su propia empresa (RF-31). Un Admin de Medife y el Super Admin no
+// tienen esa restricción.
+async function assertSameEmpresaScope(actor: { role: string; empresa_id: string | null }, targetUserId: string) {
+  if (actor.role === "super_admin" || isMedife(actor.empresa_id)) return;
+  const supabase = createServiceClient();
+  const { data: target } = await supabase.from("profiles").select("empresa_id").eq("id", targetUserId).single();
+  if (!target || target.empresa_id !== actor.empresa_id) {
+    throw new Error("No tenés permiso sobre un usuario de otra empresa.");
+  }
+}
+
 export async function approveUserAction(userId: string) {
   const actor = await requireRole(["admin", "super_admin"]);
+  await assertSameEmpresaScope(actor, userId);
   const supabase = createServiceClient();
   await supabase
     .from("profiles")
@@ -25,6 +39,7 @@ export async function approveUserAction(userId: string) {
 
 export async function rejectUserAction(userId: string) {
   const actor = await requireRole(["admin", "super_admin"]);
+  await assertSameEmpresaScope(actor, userId);
   const supabase = createServiceClient();
   await supabase.from("profiles").update({ status: "rejected" }).eq("id", userId);
   await logAction(actor.id, "user.reject", userId);
@@ -35,6 +50,7 @@ export async function rejectUserAction(userId: string) {
 // pero se bloquea el acceso y se revoca cualquier sesión activa.
 export async function deleteUserAction(userId: string) {
   const actor = await requireRole(["admin", "super_admin"]);
+  await assertSameEmpresaScope(actor, userId);
   const supabase = createServiceClient();
   await supabase.from("profiles").update({ disabled_at: new Date().toISOString() }).eq("id", userId);
   // Revoca el acceso de inmediato (no solo en el próximo chequeo de perfil):
@@ -49,7 +65,7 @@ const inviteSchema = z.object({
   nombre: z.string().min(1, "Ingresá el nombre."),
   apellido: z.string().min(1, "Ingresá el apellido."),
   celular: z.string().min(1, "Ingresá el celular."),
-  empresa: z.string().min(1, "Ingresá la empresa o broker."),
+  empresa_id: z.string().uuid("Elegí la empresa o broker."),
 });
 
 export type InviteUserState = { ok: true; link: string; email: string } | { ok: false; error: string };
@@ -66,7 +82,14 @@ export async function inviteUserAction(raw: unknown): Promise<InviteUserState> {
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
   }
-  const { email, nombre, apellido, celular, empresa } = parsed.data;
+  const { email, nombre, apellido, celular, empresa_id } = parsed.data;
+
+  // RF-31: un Admin de una empresa distinta de Medife solo puede crear
+  // usuarios dentro de su propia empresa.
+  if (actor.role === "admin" && !isMedife(actor.empresa_id) && empresa_id !== actor.empresa_id) {
+    return { ok: false, error: "Solo podés crear usuarios de tu propia empresa." };
+  }
+
   const supabase = createServiceClient();
 
   const siteUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -74,7 +97,7 @@ export async function inviteUserAction(raw: unknown): Promise<InviteUserState> {
     type: "invite",
     email,
     options: {
-      data: { nombre, apellido, celular, empresa },
+      data: { nombre, apellido, celular, empresa_id },
       redirectTo: `${siteUrl}/set-password`,
     },
   });

@@ -1,20 +1,31 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireRole } from "@/lib/auth/session";
+import { listEmpresas, isMedife } from "@/lib/empresas";
 import { approveUserAction, rejectUserAction, deleteUserAction } from "./actions";
 import InviteForm from "./InviteForm";
 
 export default async function AdminUsersPage() {
-  const supabase = createServiceClient();
+  const actor = await requireRole(["admin", "super_admin"]);
+  const scoped = actor.role === "admin" && !isMedife(actor.empresa_id);
 
-  const { data: pending } = await supabase
+  const supabase = createServiceClient();
+  const empresas = await listEmpresas();
+  const lockedEmpresa = scoped ? empresas.find((e) => e.id === actor.empresa_id) : undefined;
+
+  let pendingQuery = supabase
     .from("profiles")
-    .select("id, email, nombre, apellido, celular, empresa, created_at")
+    .select("id, email, nombre, apellido, celular, empresa_id, empresas(nombre), created_at")
     .eq("status", "pending_approval")
     .order("created_at", { ascending: true });
+  if (scoped) pendingQuery = pendingQuery.eq("empresa_id", actor.empresa_id);
+  const { data: pending } = await pendingQuery;
 
-  const { data: all } = await supabase
+  let allQuery = supabase
     .from("profiles")
-    .select("id, email, nombre, apellido, role, status, disabled_at")
+    .select("id, email, nombre, apellido, role, status, disabled_at, empresa_id, empresas(nombre)")
     .order("created_at", { ascending: false });
+  if (scoped) allQuery = allQuery.eq("empresa_id", actor.empresa_id);
+  const { data: all } = await allQuery;
 
   async function approve(formData: FormData) {
     "use server";
@@ -31,7 +42,7 @@ export default async function AdminUsersPage() {
 
   return (
     <div>
-      <InviteForm />
+      <InviteForm empresas={empresas} lockedEmpresa={lockedEmpresa} />
 
       <div className="card">
         <h2 style={{ fontSize: 18, margin: "0 0 14px" }}>Usuarios pendientes de aprobación</h2>
@@ -50,12 +61,12 @@ export default async function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {pending.map((u) => (
+                {(pending as any[]).map((u) => (
                   <tr key={u.id}>
                     <td style={td}>{u.nombre} {u.apellido}</td>
                     <td style={td}>{u.email}</td>
                     <td style={td}>{u.celular}</td>
-                    <td style={td}>{u.empresa}</td>
+                    <td style={td}>{u.empresas?.nombre ?? "—"}</td>
                     <td style={td}>
                       <div style={{ display: "flex", gap: 8 }}>
                         <form action={approve}>
@@ -86,16 +97,18 @@ export default async function AdminUsersPage() {
               <tr>
                 <th style={th}>Nombre</th>
                 <th style={th}>Email</th>
+                <th style={th}>Empresa</th>
                 <th style={th}>Rol</th>
                 <th style={th}>Estado</th>
                 <th style={th}>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {(all ?? []).map((u) => (
+              {((all ?? []) as any[]).map((u) => (
                 <tr key={u.id}>
                   <td style={td}>{u.nombre} {u.apellido}</td>
                   <td style={td}>{u.email}</td>
+                  <td style={td}>{u.empresas?.nombre ?? "—"}</td>
                   <td style={td}>{u.role}</td>
                   <td style={td}>{u.disabled_at ? "deshabilitado" : u.status}</td>
                   <td style={td}>
