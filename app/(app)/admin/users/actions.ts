@@ -89,5 +89,13 @@ export async function inviteUserAction(raw: unknown): Promise<InviteUserState> {
   await logAction(actor.id, "user.invite", data.user.id);
   revalidatePath("/admin/users");
 
-  return { ok: true, link: data.properties.action_link, email };
+  // Armamos el link directo a nuestra página con token_hash en vez de usar
+  // el action_link crudo de Supabase: ese apunta a su propio endpoint
+  // /verify, que entrega la sesión por fragmento de URL (#access_token=...)
+  // — un formato que nuestro cliente (configurado para flujo PKCE) no
+  // procesa solo. Con token_hash, nuestra propia página hace el intercambio
+  // explícitamente vía verifyOtp(), sin depender de eso.
+  const link = `${siteUrl}/set-password?token_hash=${data.properties.hashed_token}&type=invite`;
+
+  return { ok: true, link, email };
 }
