@@ -1,4 +1,4 @@
-import { getRegionsAndFiliales, loadAllDiscountPolicies } from "@/lib/pricing/repository";
+import { getRegionsAndFiliales, loadAllDiscountPolicies, listSelectablePriceListVersions } from "@/lib/pricing/repository";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
 import QuoteForm, { type QuoteFormInitial } from "./QuoteForm";
@@ -10,10 +10,11 @@ export default async function QuotesPage({
 }) {
   const { rehacer } = await searchParams;
 
-  const [{ regions, filiales }, policies, profile] = await Promise.all([
+  const [{ regions, filiales }, policies, profile, priceListVersions] = await Promise.all([
     getRegionsAndFiliales(),
     loadAllDiscountPolicies(),
     getCurrentProfile(),
+    listSelectablePriceListVersions(),
   ]);
 
   let initial: QuoteFormInitial | null = null;
@@ -21,7 +22,7 @@ export default async function QuotesPage({
     const supabase = createServiceClient();
     const { data: quote } = await supabase
       .from("quotes")
-      .select("created_by, vendedor_nombre, asociado_nombre, vigencia, input")
+      .select("created_by, vendedor_nombre, asociado_nombre, vigencia, price_list_version_id, input")
       .eq("id", rehacer)
       .single();
 
@@ -40,6 +41,7 @@ export default async function QuotesPage({
         vigencia: (quote.vigencia as "actual" | "siguiente") ?? "actual",
         miembros: input.miembros,
         selectedPolicyIds: input.selectedPolicyIds,
+        priceListVersionId: quote.price_list_version_id,
       };
     }
   }
@@ -49,6 +51,7 @@ export default async function QuotesPage({
       regions={regions}
       filiales={filiales}
       policies={policies}
+      priceListVersions={priceListVersions}
       vendedorDefault={`${profile?.nombre ?? ""} ${profile?.apellido ?? ""}`.trim()}
       initial={initial}
     />

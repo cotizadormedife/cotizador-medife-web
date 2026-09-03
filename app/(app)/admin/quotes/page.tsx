@@ -32,7 +32,7 @@ export default async function AdminQuotesPage({
   let query = supabase
     .from("quotes")
     .select(
-      "id, created_at, asociado_nombre, vendedor_nombre, region_code, filial_code, categoria, vigencia, created_by, input, output, profiles!quotes_created_by_fkey(nombre, apellido, email, empresa_id)"
+      "id, created_at, asociado_nombre, vendedor_nombre, region_code, filial_code, categoria, vigencia, created_by, input, output, profiles!quotes_created_by_fkey(nombre, apellido, email, empresa_id), price_list_versions(source_filename, uploaded_at)"
     );
 
   if (desde) query = query.gte("created_at", desde);
@@ -124,6 +124,7 @@ export default async function AdminQuotesPage({
                 <th style={th}>Categoría</th>
                 <th style={th}>Grupo familiar</th>
                 <th style={th}>% Descuento (PLATA)</th>
+                <th style={th}>Lista de precios</th>
                 <th style={th}>Acciones</th>
               </tr>
             </thead>
@@ -140,6 +141,14 @@ export default async function AdminQuotesPage({
                   <td style={td}>{summarizeMiembros(q.input?.miembros ?? [])}</td>
                   <td style={td}>{Math.round(descuentoOfrecidoPct(q.output) * 100)}%</td>
                   <td style={td}>
+                    {q.price_list_versions?.source_filename ?? "—"}
+                    {q.price_list_versions?.uploaded_at && (
+                      <div style={{ fontSize: 11, color: "var(--text-neutral)" }}>
+                        {new Date(q.price_list_versions.uploaded_at).toLocaleDateString("es-AR")}
+                      </div>
+                    )}
+                  </td>
+                  <td style={td}>
                     <QuoteDetailActions
                       quoteId={q.id}
                       result={q.output}
@@ -152,6 +161,10 @@ export default async function AdminQuotesPage({
                         categoria: q.categoria,
                         filial: q.filial_code,
                         vigencia: q.vigencia,
+                        listaPrecios: q.price_list_versions?.source_filename,
+                        listaPreciosFecha: q.price_list_versions?.uploaded_at
+                          ? new Date(q.price_list_versions.uploaded_at).toLocaleString("es-AR")
+                          : undefined,
                       }}
                     />
                   </td>

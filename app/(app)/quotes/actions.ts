@@ -25,6 +25,7 @@ const inputSchema = z.object({
   vigencia: z.string(),
   miembros: z.array(miembroSchema).min(1, "Agregá al menos un integrante."),
   selectedPolicyIds: z.array(z.string()),
+  priceListVersionId: z.string().uuid().optional(),
 });
 
 export type RunQuoteState =
@@ -50,7 +51,7 @@ export async function runQuoteAction(raw: unknown): Promise<RunQuoteState> {
 
   let data;
   try {
-    data = await loadPricingData(form.region, form.categoria);
+    data = await loadPricingData(form.region, form.categoria, form.priceListVersionId);
   } catch (e: any) {
     return { ok: false, error: e.message ?? "No se pudo cargar la lista de precios." };
   }

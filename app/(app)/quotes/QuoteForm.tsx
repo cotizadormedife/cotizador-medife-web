@@ -10,6 +10,7 @@ import QuoteResults, { fmtPct } from "./QuoteResults";
 
 type Region = { code: string; nombre: string; sort_order: number };
 type Filial = { code: string; region_code: string; nombre: string; sort_order: number };
+type PriceListVersion = { id: string; sourceFilename: string; uploadedAt: string };
 
 const MONOTRIBUTO_CATS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"];
 const TIPOS: TipoMiembro[] = ["Titular", "Esposo/a", "Hijo/a", "Familiar a cargo"];
@@ -33,18 +34,21 @@ export type QuoteFormInitial = {
   vigencia: "actual" | "siguiente";
   miembros: Miembro[];
   selectedPolicyIds: string[];
+  priceListVersionId?: string;
 };
 
 export default function QuoteForm({
   regions,
   filiales,
   policies,
+  priceListVersions,
   vendedorDefault,
   initial,
 }: {
   regions: Region[];
   filiales: Filial[];
   policies: DiscountPolicy[];
+  priceListVersions: PriceListVersion[];
   vendedorDefault: string;
   initial?: QuoteFormInitial | null;
 }) {
@@ -58,6 +62,9 @@ export default function QuoteForm({
   const [filial, setFilial] = useState(initial?.filial ?? filialesRegion[0]?.code ?? "");
   const [miembros, setMiembros] = useState<Miembro[]>(initial?.miembros ?? [{ tipo: "Titular", rango: "36-40" }]);
   const [selectedPolicyIds, setSelectedPolicyIds] = useState<string[]>(initial?.selectedPolicyIds ?? []);
+  const [priceListVersionId, setPriceListVersionId] = useState(
+    initial?.priceListVersionId ?? priceListVersions[0]?.id ?? ""
+  );
   const [state, setState] = useState<RunQuoteState | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -133,6 +140,7 @@ export default function QuoteForm({
         vigencia,
         miembros,
         selectedPolicyIds,
+        priceListVersionId,
       });
       setState(res);
       window.scrollTo(0, 0);
@@ -305,6 +313,19 @@ export default function QuoteForm({
             onToggle={togglePolicy}
           />
           <DiscountSection title="Descuentos tácticos" items={tactico} selected={selectedPolicyIds} onToggle={togglePolicy} />
+        </div>
+
+        <div className="card">
+          <label style={labelStyle}>
+            Lista de precios
+            <select value={priceListVersionId} onChange={(e) => setPriceListVersionId(e.target.value)}>
+              {priceListVersions.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.sourceFilename} — {new Date(v.uploadedAt).toLocaleString("es-AR")}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         <button type="button" className="btn-primary" onClick={submit} disabled={pending} style={{ width: "100%" }}>
