@@ -245,10 +245,17 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
     };
   });
 
-  // Uso interno: % equivalente sobre el grupo para Ajuste Hijos / Segmento Joven (referencia PLATA)
+  // Uso interno: % equivalente por plan para Ajuste Hijos / Segmento Joven,
+  // para cargar en el sistema de Medife sobre el total del grupo familiar.
+  const ajusteHijosAplica = PLANES.map((_, pi) => planFactor(ajusteHijosPolicy, pi) !== 0);
+  const segmentoJovenAplica = PLANES.map(
+    (_, pi) => planFactor(segJoven25Policy, pi) !== 0 || (isAMBA && planFactor(segJoven29Policy, pi) !== 0)
+  );
+  const usoInternoPctByPlan = (amtByPlan: number[], aplica: boolean[]): (number | null)[] =>
+    PLANES.map((_, pi) => (aplica[pi] && subtotales[pi] ? Math.abs(amtByPlan[pi]) / subtotales[pi] : null));
   const usoInterno = {
-    ajusteHijosPct: subtotales[4] ? Math.abs(ajusteHijosAmt[4]) / subtotales[4] : 0,
-    segmentoJovenPct: subtotales[4] ? Math.abs(segmentoJovenAmt[4]) / subtotales[4] : 0,
+    ajusteHijosPct: usoInternoPctByPlan(ajusteHijosAmt, ajusteHijosAplica),
+    segmentoJovenPct: usoInternoPctByPlan(segmentoJovenAmt, segmentoJovenAplica),
   };
 
   const activePolicies = [

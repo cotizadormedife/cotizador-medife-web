@@ -101,8 +101,9 @@ export type QuoteResult = {
   priceListVersionId: string;
   planes: PlanBreakdown[];
   usoInterno: {
-    ajusteHijosPct: number;
-    segmentoJovenPct: number;
+    // % equivalente por plan, para cargar en el sistema. null = no aplica en ese plan.
+    ajusteHijosPct: (number | null)[];
+    segmentoJovenPct: (number | null)[];
   };
   activePolicies: Array<{ id: string; nombre: string; detalle: string | null }>;
   proyeccionCuotas: CuotaProyeccion[];

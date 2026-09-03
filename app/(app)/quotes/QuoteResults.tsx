@@ -7,6 +7,7 @@ import { PLANES, PLAN_LABELS } from "@/lib/pricing/types";
 export const fmtMoney = (n: number) =>
   n.toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
 export const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${Math.round(n * 100)}%`;
+const fmtUsoInternoPct = (n: number | null) => (n === null ? "–" : `${(n * 100).toFixed(2)}%`);
 
 export type QuoteResultsMeta = {
   asociado?: string;
@@ -48,6 +49,8 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
   }
 
   const catLabel = meta?.categoria === "Vol" ? "Voluntario" : meta?.categoria === "Obl" ? "Obligatorio" : meta?.categoria;
+  const hasAjusteHijos = result.usoInterno.ajusteHijosPct.some((v) => v !== null && v > 0);
+  const hasSegmentoJoven = result.usoInterno.segmentoJovenPct.some((v) => v !== null && v > 0);
 
   return (
     <div>
@@ -101,15 +104,50 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
         ))}
       </div>
 
-      {(result.usoInterno.ajusteHijosPct > 0 || result.usoInterno.segmentoJovenPct > 0) && (
-        <div className="card print-hidden" style={{ background: "var(--brand-orange-focus-bg)" }}>
-          <strong>Uso interno</strong> — porcentajes a cargar en el sistema de Medife:
-          <ul>
-            {result.usoInterno.ajusteHijosPct > 0 && <li>Ajuste Lista Hijos: {fmtPct(-result.usoInterno.ajusteHijosPct)}</li>}
-            {result.usoInterno.segmentoJovenPct > 0 && (
-              <li>Segmento Joven: {fmtPct(-result.usoInterno.segmentoJovenPct)}</li>
-            )}
-          </ul>
+      {(hasAjusteHijos || hasSegmentoJoven) && (
+        <div className="card print-hidden" style={{ background: "var(--brand-orange-focus-bg)", border: "1px solid var(--brand-orange)" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--brand-orange)", textTransform: "uppercase", letterSpacing: 0.3 }}>
+            ℹ️ Uso interno — Dto. a ingresar en sistema sobre grupo familiar
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-neutral)", margin: "2px 0 10px", textTransform: "uppercase" }}>
+            % equivalente al ajuste de precios, para aplicar sobre el total del grupo en el sistema
+          </div>
+          <div className="table-scroll">
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={th}>Concepto</th>
+                  {result.planes.map((p) => (
+                    <th key={p.planCode} style={th}>
+                      {PLAN_LABELS[p.planCode]}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {hasAjusteHijos && (
+                  <tr>
+                    <td style={{ ...td, textAlign: "left" }}>Dto. Ajuste Hijos</td>
+                    {result.usoInterno.ajusteHijosPct.map((v, i) => (
+                      <td key={i} style={td}>
+                        {fmtUsoInternoPct(v)}
+                      </td>
+                    ))}
+                  </tr>
+                )}
+                {hasSegmentoJoven && (
+                  <tr>
+                    <td style={{ ...td, textAlign: "left" }}>Dto. Segmento Joven</td>
+                    {result.usoInterno.segmentoJovenPct.map((v, i) => (
+                      <td key={i} style={td}>
+                        {fmtUsoInternoPct(v)}
+                      </td>
+                    ))}
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
