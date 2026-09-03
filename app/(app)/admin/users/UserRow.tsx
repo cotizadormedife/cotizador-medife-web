@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import {
   deleteUserAction,
   reactivateUserAction,
+  promoteToAdminAction,
   promoteToSuperAdminAction,
   demoteFromAdminAction,
   updateUserEmpresaAction,
@@ -104,6 +105,11 @@ export default function UserRow({
           ) : (
             <button type="button" className="btn-primary" onClick={() => run(() => reactivateUserAction(user.id))} disabled={pending} style={{ padding: "8px 14px", fontSize: 13, minHeight: 0 }}>
               Rehabilitar
+            </button>
+          )}
+          {!user.disabled_at && user.status === "approved" && user.role === "vendedor" && (
+            <button type="button" onClick={() => run(() => promoteToAdminAction(user.id))} disabled={pending}>
+              Ascender a Admin
             </button>
           )}
           {isSuperAdmin && user.role === "admin" && (

@@ -72,6 +72,18 @@ export async function reactivateUserAction(userId: string) {
   revalidatePath("/admin/users");
 }
 
+// RF-15/RF-31: ascenso a Admin. Un Admin de una empresa distinta de Medife
+// solo puede ascender usuarios de su propia empresa; un Admin de Medife y
+// el Super Admin no tienen esa restricción.
+export async function promoteToAdminAction(userId: string) {
+  const actor = await requireRole(["admin", "super_admin"]);
+  await assertSameEmpresaScope(actor, userId);
+  const supabase = createServiceClient();
+  await supabase.from("profiles").update({ role: "admin" }).eq("id", userId).eq("status", "approved");
+  await logAction(actor.id, "role.promote", userId);
+  revalidatePath("/admin/users");
+}
+
 // RF-36: el Super Admin puede ascender a Super Admin, solo si el usuario
 // pertenece a Medife (el trigger de base también lo garantiza).
 export async function promoteToSuperAdminAction(userId: string) {
