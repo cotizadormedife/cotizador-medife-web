@@ -60,6 +60,56 @@ export async function deleteUserAction(userId: string) {
   revalidatePath("/admin/users");
 }
 
+// RF-40: revierte la baja de un usuario eliminado y le restaura el acceso.
+// Mismo alcance por empresa que eliminar/aprobar/rechazar.
+export async function reactivateUserAction(userId: string) {
+  const actor = await requireRole(["admin", "super_admin"]);
+  await assertSameEmpresaScope(actor, userId);
+  const supabase = createServiceClient();
+  await supabase.from("profiles").update({ disabled_at: null }).eq("id", userId);
+  await supabase.auth.admin.updateUserById(userId, { ban_duration: "none" });
+  await logAction(actor.id, "user.reactivate", userId);
+  revalidatePath("/admin/users");
+}
+
+// RF-36: el Super Admin puede ascender a Super Admin, solo si el usuario
+// pertenece a Medife (el trigger de base también lo garantiza).
+export async function promoteToSuperAdminAction(userId: string) {
+  const actor = await requireRole(["super_admin"]);
+  const supabase = createServiceClient();
+  const { data: target } = await supabase.from("profiles").select("empresa_id").eq("id", userId).single();
+  if (!target || !isMedife(target.empresa_id)) {
+    throw new Error("Un Super Admin solo puede pertenecer a la empresa Medife.");
+  }
+  await supabase.from("profiles").update({ role: "super_admin" }).eq("id", userId).eq("status", "approved");
+  await logAction(actor.id, "role.promote_super_admin", userId);
+  revalidatePath("/admin/users");
+}
+
+// RF-38: el Super Admin puede quitarle el rol Admin a un usuario (vuelve a Vendedor).
+export async function demoteFromAdminAction(userId: string) {
+  const actor = await requireRole(["super_admin"]);
+  const supabase = createServiceClient();
+  await supabase.from("profiles").update({ role: "vendedor" }).eq("id", userId).eq("role", "admin");
+  await logAction(actor.id, "role.demote_admin", userId);
+  revalidatePath("/admin/users");
+}
+
+export type UpdateEmpresaState = { ok: true } | { ok: false; error: string };
+
+// RF-37: el Super Admin puede reasignar la empresa/broker de un usuario existente.
+export async function updateUserEmpresaAction(userId: string, empresaId: string): Promise<UpdateEmpresaState> {
+  const actor = await requireRole(["super_admin"]);
+  const supabase = createServiceClient();
+  const { error } = await supabase.from("profiles").update({ empresa_id: empresaId }).eq("id", userId);
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  await logAction(actor.id, "user.change_empresa", userId);
+  revalidatePath("/admin/users");
+  return { ok: true };
+}
+
 const inviteSchema = z.object({
   email: z.string().email("Ingresá un email válido."),
   nombre: z.string().min(1, "Ingresá el nombre."),

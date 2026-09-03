@@ -135,6 +135,7 @@ export default function QuoteForm({
         selectedPolicyIds,
       });
       setState(res);
+      window.scrollTo(0, 0);
     });
   }
 

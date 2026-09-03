@@ -1,8 +1,9 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireRole } from "@/lib/auth/session";
 import { listEmpresas, isMedife } from "@/lib/empresas";
-import { approveUserAction, rejectUserAction, deleteUserAction } from "./actions";
+import { approveUserAction, rejectUserAction } from "./actions";
 import InviteForm from "./InviteForm";
+import UserRow from "./UserRow";
 
 export default async function AdminUsersPage() {
   const actor = await requireRole(["admin", "super_admin"]);
@@ -34,10 +35,6 @@ export default async function AdminUsersPage() {
   async function reject(formData: FormData) {
     "use server";
     await rejectUserAction(String(formData.get("id")));
-  }
-  async function del(formData: FormData) {
-    "use server";
-    await deleteUserAction(String(formData.get("id")));
   }
 
   return (
@@ -105,21 +102,22 @@ export default async function AdminUsersPage() {
             </thead>
             <tbody>
               {((all ?? []) as any[]).map((u) => (
-                <tr key={u.id}>
-                  <td style={td}>{u.nombre} {u.apellido}</td>
-                  <td style={td}>{u.email}</td>
-                  <td style={td}>{u.empresas?.nombre ?? "—"}</td>
-                  <td style={td}>{u.role}</td>
-                  <td style={td}>{u.disabled_at ? "deshabilitado" : u.status}</td>
-                  <td style={td}>
-                    {!u.disabled_at && (
-                      <form action={del}>
-                        <input type="hidden" name="id" value={u.id} />
-                        <button type="submit">Eliminar</button>
-                      </form>
-                    )}
-                  </td>
-                </tr>
+                <UserRow
+                  key={u.id}
+                  user={{
+                    id: u.id,
+                    nombre: u.nombre,
+                    apellido: u.apellido,
+                    email: u.email,
+                    role: u.role,
+                    status: u.status,
+                    disabled_at: u.disabled_at,
+                    empresa_id: u.empresa_id,
+                    empresa_nombre: u.empresas?.nombre ?? null,
+                  }}
+                  empresas={empresas}
+                  isSuperAdmin={actor.role === "super_admin"}
+                />
               ))}
             </tbody>
           </table>
