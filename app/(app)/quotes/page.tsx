@@ -53,7 +53,7 @@ export default async function QuotesPage({
   if (initial?.priceListVersionId && !priceListVersions.some((v) => v.id === initial!.priceListVersionId)) {
     const original = await getPriceListVersionInfo(initial.priceListVersionId);
     if (original) {
-      priceListVersions = [{ ...original, sourceFilename: `${original.sourceFilename} (deshabilitada)` }, ...priceListVersions];
+      priceListVersions = [{ ...original, disabled: true }, ...priceListVersions];
     }
   }
 

@@ -16,6 +16,7 @@ export default function QuoteDetailActions({
   result: QuoteResult;
   input: any;
   meta: {
+    numero?: number;
     fecha: string;
     vendedor: string;
     asociado: string;
@@ -23,7 +24,6 @@ export default function QuoteDetailActions({
     categoria: string;
     filial: string;
     vigencia?: string;
-    listaPrecios?: string;
     listaPreciosFecha?: string;
   };
 }) {
@@ -72,7 +72,12 @@ export default function QuoteDetailActions({
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
               <div>
-                <h2 style={{ fontSize: 20, margin: "0 0 4px" }}>{meta.asociado}</h2>
+                <h2 style={{ fontSize: 20, margin: "0 0 4px" }}>
+                  {meta.asociado}
+                  {meta.numero != null && (
+                    <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-neutral)" }}> · N° {meta.numero}</span>
+                  )}
+                </h2>
                 <p style={{ fontSize: 13, color: "var(--text-neutral)", margin: 0 }}>
                   {meta.fecha} · {meta.vendedor} · {meta.region} / {meta.filial} ·{" "}
                   {meta.categoria === "Vol" ? "Voluntario" : "Obligatorio"}
@@ -80,10 +85,9 @@ export default function QuoteDetailActions({
                 <p style={{ fontSize: 13, color: "var(--text-neutral)", margin: "4px 0 0" }}>
                   Grupo familiar: {summarizeMiembros(input?.miembros ?? [])}
                 </p>
-                {meta.listaPrecios && (
+                {meta.listaPreciosFecha && (
                   <p style={{ fontSize: 13, color: "var(--text-neutral)", margin: "4px 0 0" }}>
-                    Lista de precios: {meta.listaPrecios}
-                    {meta.listaPreciosFecha ? ` (${meta.listaPreciosFecha})` : ""}
+                    Lista de precios: {meta.listaPreciosFecha}
                   </p>
                 )}
               </div>

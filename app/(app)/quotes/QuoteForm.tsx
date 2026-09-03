@@ -10,7 +10,7 @@ import QuoteResults, { fmtPct } from "./QuoteResults";
 
 type Region = { code: string; nombre: string; sort_order: number };
 type Filial = { code: string; region_code: string; nombre: string; sort_order: number };
-type PriceListVersion = { id: string; sourceFilename: string; uploadedAt: string };
+type PriceListVersion = { id: string; sourceFilename: string; uploadedAt: string; disabled?: boolean };
 
 const MONOTRIBUTO_CATS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"];
 const TIPOS: TipoMiembro[] = ["Titular", "Esposo/a", "Hijo/a", "Familiar a cargo"];
@@ -321,7 +321,8 @@ export default function QuoteForm({
             <select value={priceListVersionId} onChange={(e) => setPriceListVersionId(e.target.value)}>
               {priceListVersions.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.sourceFilename} — {new Date(v.uploadedAt).toLocaleString("es-AR")}
+                  {new Date(v.uploadedAt).toLocaleString("es-AR")}
+                  {v.disabled ? " (deshabilitada)" : ""}
                 </option>
               ))}
             </select>

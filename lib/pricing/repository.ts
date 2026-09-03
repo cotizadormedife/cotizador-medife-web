@@ -87,7 +87,10 @@ export async function loadPricingData(region: string, categoria: Categoria, pric
   };
 }
 
-export type SelectablePriceListVersion = { id: string; sourceFilename: string; uploadedAt: string };
+// El combo y los listados solo muestran fecha y hora de alta (sin nombre de
+// archivo) — sourceFilename se conserva en el tipo por si se necesita en
+// otro lado, pero ninguna pantalla lo renderiza más.
+export type SelectablePriceListVersion = { id: string; sourceFilename: string; uploadedAt: string; disabled?: boolean };
 
 // RF-41 / RF-44: versiones seleccionables en el combo del cotizador — las que
 // llegaron a estar activas (activa actual + archivadas) y están habilitadas

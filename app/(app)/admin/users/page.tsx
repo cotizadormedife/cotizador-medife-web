@@ -5,10 +5,15 @@ import { approveUserAction, rejectUserAction } from "./actions";
 import InviteForm from "./InviteForm";
 import UserRow from "./UserRow";
 
-export default async function AdminUsersPage() {
+export default async function AdminUsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; empresa?: string }>;
+}) {
   const actor = await requireRole(["admin", "super_admin"]);
   const scoped = actor.role === "admin" && !isMedife(actor.empresa_id);
 
+  const { q, empresa } = await searchParams;
   const supabase = createServiceClient();
   const empresas = await listEmpresas();
   const lockedEmpresa = scoped ? empresas.find((e) => e.id === actor.empresa_id) : undefined;
@@ -21,11 +26,22 @@ export default async function AdminUsersPage() {
   if (scoped) pendingQuery = pendingQuery.eq("empresa_id", actor.empresa_id);
   const { data: pending } = await pendingQuery;
 
+  // RF-48: buscador por nombre/apellido/email y, para el Super Admin, combo
+  // de empresa; el listado siempre se muestra ordenado alfabéticamente.
   let allQuery = supabase
     .from("profiles")
     .select("id, email, nombre, apellido, role, status, disabled_at, empresa_id, empresas(nombre)")
-    .order("created_at", { ascending: false });
-  if (scoped) allQuery = allQuery.eq("empresa_id", actor.empresa_id);
+    .order("nombre", { ascending: true })
+    .order("apellido", { ascending: true });
+  if (scoped) {
+    allQuery = allQuery.eq("empresa_id", actor.empresa_id);
+  } else if (empresa) {
+    allQuery = allQuery.eq("empresa_id", empresa);
+  }
+  if (q) {
+    const like = `%${q.replace(/[%,()]/g, "")}%`;
+    allQuery = allQuery.or(`nombre.ilike.${like},apellido.ilike.${like},email.ilike.${like}`);
+  }
   const { data: all } = await allQuery;
 
   async function approve(formData: FormData) {
@@ -74,7 +90,9 @@ export default async function AdminUsersPage() {
                         </form>
                         <form action={reject}>
                           <input type="hidden" name="id" value={u.id} />
-                          <button type="submit">Rechazar</button>
+                          <button type="submit" style={{ padding: "8px 14px", fontSize: 13, minHeight: 0 }}>
+                            Rechazar
+                          </button>
                         </form>
                       </div>
                     </td>
@@ -88,6 +106,28 @@ export default async function AdminUsersPage() {
 
       <div className="card">
         <h2 style={{ fontSize: 18, margin: "0 0 14px" }}>Todos los usuarios</h2>
+        <form method="get" style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-end", marginBottom: 16 }}>
+          <label style={{ ...labelStyle, minWidth: 240 }}>
+            Buscar (nombre, apellido o email)
+            <input type="text" name="q" defaultValue={q ?? ""} />
+          </label>
+          {actor.role === "super_admin" && (
+            <label style={{ ...labelStyle, minWidth: 200 }}>
+              Empresa
+              <select name="empresa" defaultValue={empresa ?? ""}>
+                <option value="">Todas</option>
+                {empresas.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button type="submit" className="btn-primary">
+            Filtrar
+          </button>
+        </form>
         <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
@@ -127,5 +167,6 @@ export default async function AdminUsersPage() {
   );
 }
 
+const labelStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 6, fontSize: 13, fontWeight: 600 };
 const th: React.CSSProperties = { textAlign: "left", padding: "8px 10px", borderBottom: "2px solid var(--border-default)", whiteSpace: "nowrap" };
 const td: React.CSSProperties = { textAlign: "left", padding: "8px 10px", borderBottom: "1px solid var(--border-disabled)" };

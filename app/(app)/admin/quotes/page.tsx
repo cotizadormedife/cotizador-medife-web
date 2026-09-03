@@ -9,6 +9,7 @@ type SearchParams = {
   hasta?: string;
   usuario?: string;
   empresa?: string;
+  numero?: string;
   orden?: "fecha" | "usuario";
 };
 
@@ -20,7 +21,7 @@ export default async function AdminQuotesPage({
   const actor = await requireRole(["admin", "super_admin"]);
   const scoped = actor.role === "admin" && !isMedife(actor.empresa_id);
 
-  const { desde, hasta, usuario, empresa, orden } = await searchParams;
+  const { desde, hasta, usuario, empresa, numero, orden } = await searchParams;
   const supabase = createServiceClient();
 
   let usuariosQuery = supabase.from("profiles").select("id, nombre, apellido, email, empresa_id").order("nombre");
@@ -32,12 +33,13 @@ export default async function AdminQuotesPage({
   let query = supabase
     .from("quotes")
     .select(
-      "id, created_at, asociado_nombre, vendedor_nombre, region_code, filial_code, categoria, vigencia, created_by, input, output, profiles!quotes_created_by_fkey(nombre, apellido, email, empresa_id), price_list_versions(source_filename, uploaded_at)"
+      "id, quote_number, created_at, asociado_nombre, vendedor_nombre, region_code, filial_code, categoria, vigencia, created_by, input, output, profiles!quotes_created_by_fkey(nombre, apellido, email, empresa_id), price_list_versions(uploaded_at)"
     );
 
   if (desde) query = query.gte("created_at", desde);
   if (hasta) query = query.lte("created_at", hasta);
   if (usuario) query = query.eq("created_by", usuario);
+  if (numero) query = query.eq("quote_number", Number(numero));
 
   // RF-31: un Admin de una empresa distinta de Medife solo ve cotizaciones de su propia empresa.
   if (scoped) {
@@ -68,6 +70,10 @@ export default async function AdminQuotesPage({
           <label style={labelStyle}>
             Hasta
             <input type="date" name="hasta" defaultValue={hasta} />
+          </label>
+          <label style={labelStyle}>
+            N° de cotización
+            <input type="number" inputMode="numeric" min={1} step={1} name="numero" defaultValue={numero ?? ""} />
           </label>
           <label style={{ ...labelStyle, minWidth: 220 }}>
             Usuario
@@ -117,6 +123,7 @@ export default async function AdminQuotesPage({
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
+                <th style={th}>N°</th>
                 <th style={th}>Fecha</th>
                 <th style={th}>Vendedor</th>
                 <th style={th}>Cliente</th>
@@ -131,6 +138,7 @@ export default async function AdminQuotesPage({
             <tbody>
               {(quotes ?? []).map((q: any) => (
                 <tr key={q.id}>
+                  <td style={td}>{q.quote_number}</td>
                   <td style={td}>{new Date(q.created_at).toLocaleString("es-AR")}</td>
                   <td style={td}>
                     {q.profiles?.nombre} {q.profiles?.apellido} ({q.profiles?.email})
@@ -141,12 +149,7 @@ export default async function AdminQuotesPage({
                   <td style={td}>{summarizeMiembros(q.input?.miembros ?? [])}</td>
                   <td style={td}>{Math.round(descuentoOfrecidoPct(q.output) * 100)}%</td>
                   <td style={td}>
-                    {q.price_list_versions?.source_filename ?? "—"}
-                    {q.price_list_versions?.uploaded_at && (
-                      <div style={{ fontSize: 11, color: "var(--text-neutral)" }}>
-                        {new Date(q.price_list_versions.uploaded_at).toLocaleDateString("es-AR")}
-                      </div>
-                    )}
+                    {q.price_list_versions?.uploaded_at ? new Date(q.price_list_versions.uploaded_at).toLocaleString("es-AR") : "—"}
                   </td>
                   <td style={td}>
                     <QuoteDetailActions
@@ -154,6 +157,7 @@ export default async function AdminQuotesPage({
                       result={q.output}
                       input={q.input}
                       meta={{
+                        numero: q.quote_number,
                         fecha: new Date(q.created_at).toLocaleString("es-AR"),
                         vendedor: q.vendedor_nombre,
                         asociado: q.asociado_nombre,
@@ -161,7 +165,6 @@ export default async function AdminQuotesPage({
                         categoria: q.categoria,
                         filial: q.filial_code,
                         vigencia: q.vigencia,
-                        listaPrecios: q.price_list_versions?.source_filename,
                         listaPreciosFecha: q.price_list_versions?.uploaded_at
                           ? new Date(q.price_list_versions.uploaded_at).toLocaleString("es-AR")
                           : undefined,
