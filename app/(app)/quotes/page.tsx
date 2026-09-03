@@ -1,4 +1,4 @@
-import { getRegionsAndFiliales, loadAllDiscountPolicies, listSelectablePriceListVersions } from "@/lib/pricing/repository";
+import { getRegionsAndFiliales, loadAllDiscountPolicies, listSelectablePriceListVersions, getPriceListVersionInfo } from "@/lib/pricing/repository";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
 import QuoteForm, { type QuoteFormInitial } from "./QuoteForm";
@@ -10,7 +10,7 @@ export default async function QuotesPage({
 }) {
   const { rehacer } = await searchParams;
 
-  const [{ regions, filiales }, policies, profile, priceListVersions] = await Promise.all([
+  const [{ regions, filiales }, policies, profile, selectablePriceListVersions] = await Promise.all([
     getRegionsAndFiliales(),
     loadAllDiscountPolicies(),
     getCurrentProfile(),
@@ -43,6 +43,17 @@ export default async function QuotesPage({
         selectedPolicyIds: input.selectedPolicyIds,
         priceListVersionId: quote.price_list_version_id,
       };
+    }
+  }
+
+  // Si la cotización que se está re-cotizando usó una lista que hoy está
+  // deshabilitada (RF-44), igual hay que poder mostrarla en el combo para no
+  // perder el dato original — se agrega aparte, marcada como deshabilitada.
+  let priceListVersions = selectablePriceListVersions;
+  if (initial?.priceListVersionId && !priceListVersions.some((v) => v.id === initial!.priceListVersionId)) {
+    const original = await getPriceListVersionInfo(initial.priceListVersionId);
+    if (original) {
+      priceListVersions = [{ ...original, sourceFilename: `${original.sourceFilename} (deshabilitada)` }, ...priceListVersions];
     }
   }
 

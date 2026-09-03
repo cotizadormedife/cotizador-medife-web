@@ -89,21 +89,33 @@ export async function loadPricingData(region: string, categoria: Categoria, pric
 
 export type SelectablePriceListVersion = { id: string; sourceFilename: string; uploadedAt: string };
 
-// RF-41: versiones seleccionables en el combo del cotizador — las que
-// llegaron a estar activas (activa actual + archivadas), no los borradores
-// sin revisar. De la más nueva a la más vieja.
+// RF-41 / RF-44: versiones seleccionables en el combo del cotizador — las que
+// llegaron a estar activas (activa actual + archivadas) y están habilitadas
+// (no los borradores sin revisar, ni las deshabilitadas). De la más nueva a
+// la más vieja.
 export async function listSelectablePriceListVersions(): Promise<SelectablePriceListVersion[]> {
   const supabase = createServiceClient();
   const { data } = await supabase
     .from("price_list_versions")
     .select("id, source_filename, uploaded_at")
     .in("status", ["active", "archived"])
+    .eq("habilitada", true)
     .order("uploaded_at", { ascending: false });
   return (data ?? []).map((v) => ({
     id: v.id,
     sourceFilename: v.source_filename ?? "(sin nombre)",
     uploadedAt: v.uploaded_at,
   }));
+}
+
+// Usado para el "Re-cotizar": si la cotización original usó una versión que
+// después se deshabilitó, igual hay que poder mostrarla en el combo (con su
+// nombre real) para no perder el dato original de la cotización.
+export async function getPriceListVersionInfo(id: string): Promise<SelectablePriceListVersion | null> {
+  const supabase = createServiceClient();
+  const { data } = await supabase.from("price_list_versions").select("id, source_filename, uploaded_at").eq("id", id).single();
+  if (!data) return null;
+  return { id: data.id, sourceFilename: data.source_filename ?? "(sin nombre)", uploadedAt: data.uploaded_at };
 }
 
 export async function loadAllDiscountPolicies(): Promise<DiscountPolicy[]> {

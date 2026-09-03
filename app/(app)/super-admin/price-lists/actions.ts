@@ -72,6 +72,46 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
   return { ok: true, versionId: version.id, report: parsed.report };
 }
 
+export type ToggleHabilitadaState = { ok: true } | { ok: false; error: string };
+
+// RF-44 / RF-45: habilitar o deshabilitar una versión para que el cotizador
+// pueda (o no) ofrecerla en su combo. Nunca puede quedar el sistema sin
+// ninguna lista habilitada disponible para cotizar.
+export async function toggleHabilitadaAction(versionId: string, habilitar: boolean): Promise<ToggleHabilitadaState> {
+  const actor = await requireRole(["super_admin"]);
+  const supabase = createServiceClient();
+
+  if (!habilitar) {
+    const { count, error: countErr } = await supabase
+      .from("price_list_versions")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["active", "archived"])
+      .eq("habilitada", true)
+      .neq("id", versionId);
+    if (countErr) return { ok: false, error: countErr.message };
+    if (!count) {
+      return {
+        ok: false,
+        error: "No se puede deshabilitar: no podemos quedarnos sin ninguna lista de precios vigente disponible para cotizar.",
+      };
+    }
+  }
+
+  const { error } = await supabase.from("price_list_versions").update({ habilitada: habilitar }).eq("id", versionId);
+  if (error) return { ok: false, error: error.message };
+
+  await supabase.from("audit_log").insert({
+    actor_id: actor.id,
+    action: habilitar ? "price_list.enable" : "price_list.disable",
+    target_type: "price_list_version",
+    target_id: versionId,
+  });
+
+  revalidatePath("/super-admin/price-lists");
+  revalidatePath("/quotes");
+  return { ok: true };
+}
+
 export async function activatePriceListAction(versionId: string) {
   const actor = await requireRole(["super_admin"]);
   const supabase = createServiceClient();

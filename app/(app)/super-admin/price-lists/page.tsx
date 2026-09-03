@@ -1,12 +1,13 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import UploadForm from "./UploadForm";
 import ActivateButton from "./ActivateButton";
+import ToggleHabilitadaButton from "./ToggleHabilitadaButton";
 
 export default async function PriceListsPage() {
   const supabase = createServiceClient();
   const { data: versionsData } = await supabase
     .from("price_list_versions")
-    .select("id, source_filename, status, uploaded_at, activated_at, parse_report, uploader:profiles!price_list_versions_uploaded_by_fkey(nombre, apellido), activator:profiles!price_list_versions_activated_by_fkey(nombre, apellido)")
+    .select("id, source_filename, status, habilitada, uploaded_at, activated_at, parse_report, uploader:profiles!price_list_versions_uploaded_by_fkey(nombre, apellido), activator:profiles!price_list_versions_activated_by_fkey(nombre, apellido)")
     .order("uploaded_at", { ascending: false });
   const versions = (versionsData ?? []) as any[];
 
@@ -46,6 +47,7 @@ export default async function PriceListsPage() {
               <tr>
                 <th style={th}>Archivo</th>
                 <th style={th}>Estado</th>
+                <th style={th}>Habilitada</th>
                 <th style={th}>Subida</th>
                 <th style={th}>Activada</th>
                 <th style={th}>Celdas</th>
@@ -58,6 +60,7 @@ export default async function PriceListsPage() {
                 <tr key={v.id}>
                   <td style={td}>{v.source_filename}</td>
                   <td style={td}>{v.status}</td>
+                  <td style={td}>{v.status === "draft" ? "—" : v.habilitada ? "Sí" : "No"}</td>
                   <td style={td}>
                     {new Date(v.uploaded_at).toLocaleString("es-AR")}
                     {v.uploader ? ` · ${v.uploader.nombre} ${v.uploader.apellido}` : ""}
@@ -65,7 +68,10 @@ export default async function PriceListsPage() {
                   <td style={td}>{v.activated_at ? new Date(v.activated_at).toLocaleString("es-AR") : "—"}</td>
                   <td style={td}>{v.parse_report?.totalCells ?? "—"}</td>
                   <td style={td}>{v.parse_report?.warnings?.length ?? 0}</td>
-                  <td style={td}>{v.status === "draft" && <ActivateButton versionId={v.id} />}</td>
+                  <td style={td}>
+                    {v.status === "draft" && <ActivateButton versionId={v.id} />}
+                    {v.status !== "draft" && <ToggleHabilitadaButton versionId={v.id} habilitada={v.habilitada} />}
+                  </td>
                 </tr>
               ))}
             </tbody>
