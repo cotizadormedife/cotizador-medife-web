@@ -4,6 +4,7 @@ import { listEmpresas, isMedife } from "@/lib/empresas";
 import { summarizeMiembros } from "@/lib/pricing/summary";
 import QuoteDetailActions from "../../quotes/QuoteDetailModal";
 import DiscountsCell from "../../quotes/DiscountsCell";
+import FilterForm from "./FilterForm";
 
 type SearchParams = {
   desde?: string;
@@ -63,54 +64,17 @@ export default async function AdminQuotesPage({
     <div>
       <h1 style={{ fontSize: 22, margin: "0 0 16px" }}>Todas las cotizaciones</h1>
       <div className="card">
-        <form method="get" style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-end" }}>
-          <label style={labelStyle}>
-            Desde
-            <input type="date" name="desde" defaultValue={desde} />
-          </label>
-          <label style={labelStyle}>
-            Hasta
-            <input type="date" name="hasta" defaultValue={hasta} />
-          </label>
-          <label style={labelStyle}>
-            N° de cotización
-            <input type="number" inputMode="numeric" min={1} step={1} name="numero" defaultValue={numero ?? ""} />
-          </label>
-          <label style={{ ...labelStyle, minWidth: 220 }}>
-            Usuario
-            <select name="usuario" defaultValue={usuario ?? ""}>
-              <option value="">Todos</option>
-              {(usuarios ?? []).map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.nombre} {u.apellido} ({u.email})
-                </option>
-              ))}
-            </select>
-          </label>
-          {!scoped && (
-            <label style={{ ...labelStyle, minWidth: 200 }}>
-              Empresa
-              <select name="empresa" defaultValue={empresa ?? ""}>
-                <option value="">Todas</option>
-                {empresas.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <label style={labelStyle}>
-            Ordenar por
-            <select name="orden" defaultValue={orden ?? "fecha"}>
-              <option value="fecha">Fecha</option>
-              <option value="usuario">Usuario</option>
-            </select>
-          </label>
-          <button type="submit" className="btn-primary">
-            Filtrar
-          </button>
-        </form>
+        <FilterForm
+          desde={desde}
+          hasta={hasta}
+          numero={numero}
+          orden={orden}
+          usuario={usuario}
+          empresa={empresa}
+          usuarios={usuarios ?? []}
+          empresas={empresas}
+          scoped={scoped}
+        />
       </div>
 
       {error && (
@@ -184,6 +148,5 @@ export default async function AdminQuotesPage({
   );
 }
 
-const labelStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 6, fontSize: 13, fontWeight: 600 };
 const th: React.CSSProperties = { textAlign: "left", padding: "8px 10px", borderBottom: "2px solid var(--border-default)", whiteSpace: "nowrap" };
 const td: React.CSSProperties = { textAlign: "left", padding: "8px 10px", borderBottom: "1px solid var(--border-disabled)" };
