@@ -98,6 +98,7 @@ export default function QuoteDetailActions({
             <QuoteResults
               result={result}
               meta={{
+                numero: meta.numero,
                 asociado: meta.asociado,
                 vendedor: meta.vendedor,
                 fecha: meta.fecha,

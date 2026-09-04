@@ -29,7 +29,7 @@ const inputSchema = z.object({
 });
 
 export type RunQuoteState =
-  | { ok: true; result: QuoteResult; quoteId: string }
+  | { ok: true; result: QuoteResult; quoteId: string; quoteNumber: number }
   | { ok: false; error: string };
 
 export async function runQuoteAction(raw: unknown): Promise<RunQuoteState> {
@@ -74,12 +74,12 @@ export async function runQuoteAction(raw: unknown): Promise<RunQuoteState> {
       input: quoteInput,
       output: result,
     })
-    .select("id")
+    .select("id, quote_number")
     .single();
 
   if (error) {
     return { ok: false, error: "La cotización se calculó pero no se pudo guardar: " + error.message };
   }
 
-  return { ok: true, result, quoteId: inserted.id };
+  return { ok: true, result, quoteId: inserted.id, quoteNumber: inserted.quote_number };
 }

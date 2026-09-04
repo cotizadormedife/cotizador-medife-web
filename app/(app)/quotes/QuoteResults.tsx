@@ -8,8 +8,11 @@ export const fmtMoney = (n: number) =>
   n.toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
 export const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${Math.round(n * 100)}%`;
 const fmtUsoInternoPct = (n: number | null) => (n === null ? "–" : `${(n * 100).toFixed(2)}%`);
+// RF-50: número de cotización completado con ceros a la izquierda hasta 12 dígitos.
+export const fmtQuoteNumber = (n: number) => String(n).padStart(12, "0");
 
 export type QuoteResultsMeta = {
+  numero?: number;
   asociado?: string;
   vendedor?: string;
   fecha?: string;
@@ -72,6 +75,12 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
           Imprimir
         </button>
       </div>
+
+      {meta?.numero != null && (
+        <div style={{ textAlign: "left", fontSize: 16, fontWeight: 700, margin: "0 0 12px" }}>
+          Número de cotización: {fmtQuoteNumber(meta.numero)}
+        </div>
+      )}
 
       <div
         style={{

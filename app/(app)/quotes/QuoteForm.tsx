@@ -344,6 +344,7 @@ export default function QuoteForm({
           <QuoteResults
             result={state.result}
             meta={{
+              numero: state.quoteNumber,
               asociado,
               vendedor,
               fecha: new Date().toLocaleDateString("es-AR"),
