@@ -1,7 +1,8 @@
 import { requireApprovedUser } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
-import { summarizeMiembros, descuentoOfrecidoPct } from "@/lib/pricing/summary";
+import { summarizeMiembros } from "@/lib/pricing/summary";
 import QuoteDetailActions from "../QuoteDetailModal";
+import DiscountsCell from "../DiscountsCell";
 
 export default async function HistoryPage({
   searchParams,
@@ -55,7 +56,7 @@ export default async function HistoryPage({
                   <th style={th}>Región</th>
                   <th style={th}>Categoría</th>
                   <th style={th}>Grupo familiar</th>
-                  <th style={th}>% Descuento (PLATA)</th>
+                  <th style={th}>% Descuento</th>
                   <th style={th}>Lista de precios</th>
                   <th style={th}>Acciones</th>
                 </tr>
@@ -69,7 +70,9 @@ export default async function HistoryPage({
                     <td style={td}>{q.region_code}</td>
                     <td style={td}>{q.categoria === "Vol" ? "Voluntario" : "Obligatorio"}</td>
                     <td style={td}>{summarizeMiembros(q.input?.miembros ?? [])}</td>
-                    <td style={td}>{Math.round(descuentoOfrecidoPct(q.output) * 100)}%</td>
+                    <td style={td}>
+                      <DiscountsCell input={q.input} output={q.output} />
+                    </td>
                     <td style={td}>
                       {q.price_list_versions?.uploaded_at ? new Date(q.price_list_versions.uploaded_at).toLocaleString("es-AR") : "—"}
                     </td>

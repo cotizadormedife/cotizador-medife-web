@@ -264,7 +264,7 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
     ...(segJoven29Policy ? [segJoven29Policy] : []),
     ...(descFilialPolicy ? [descFilialPolicy] : []),
     ...selectedPolicies,
-  ].map((p) => ({ id: p.id, nombre: p.nombre, detalle: p.detalle }));
+  ].map((p) => ({ id: p.id, nombre: p.nombre, detalle: p.detalle, valorPct: p.valorPct }));
 
   return {
     priceListVersionId: data.priceListVersionId,

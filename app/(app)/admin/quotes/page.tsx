@@ -1,8 +1,9 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireRole } from "@/lib/auth/session";
 import { listEmpresas, isMedife } from "@/lib/empresas";
-import { summarizeMiembros, descuentoOfrecidoPct } from "@/lib/pricing/summary";
+import { summarizeMiembros } from "@/lib/pricing/summary";
 import QuoteDetailActions from "../../quotes/QuoteDetailModal";
+import DiscountsCell from "../../quotes/DiscountsCell";
 
 type SearchParams = {
   desde?: string;
@@ -33,7 +34,7 @@ export default async function AdminQuotesPage({
   let query = supabase
     .from("quotes")
     .select(
-      "id, quote_number, created_at, asociado_nombre, vendedor_nombre, region_code, filial_code, categoria, vigencia, created_by, input, output, profiles!quotes_created_by_fkey(nombre, apellido, email, empresa_id), price_list_versions(uploaded_at)"
+      "id, quote_number, created_at, asociado_nombre, vendedor_nombre, region_code, filial_code, categoria, vigencia, created_by, input, output, profiles!quotes_created_by_fkey(nombre, apellido, email, empresa_id, empresas(nombre)), price_list_versions(uploaded_at)"
     );
 
   if (desde) query = query.gte("created_at", desde);
@@ -130,7 +131,7 @@ export default async function AdminQuotesPage({
                 <th style={th}>Región</th>
                 <th style={th}>Categoría</th>
                 <th style={th}>Grupo familiar</th>
-                <th style={th}>% Descuento (PLATA)</th>
+                <th style={th}>% Descuento</th>
                 <th style={th}>Lista de precios</th>
                 <th style={th}>Acciones</th>
               </tr>
@@ -141,13 +142,15 @@ export default async function AdminQuotesPage({
                   <td style={td}>{q.quote_number}</td>
                   <td style={td}>{new Date(q.created_at).toLocaleString("es-AR")}</td>
                   <td style={td}>
-                    {q.profiles?.nombre} {q.profiles?.apellido} ({q.profiles?.email})
+                    {q.profiles?.nombre} {q.profiles?.apellido} ({q.profiles?.empresas?.nombre ?? "—"}) ({q.profiles?.email})
                   </td>
                   <td style={td}>{q.asociado_nombre}</td>
                   <td style={td}>{q.region_code}</td>
                   <td style={td}>{q.categoria === "Vol" ? "Voluntario" : "Obligatorio"}</td>
                   <td style={td}>{summarizeMiembros(q.input?.miembros ?? [])}</td>
-                  <td style={td}>{Math.round(descuentoOfrecidoPct(q.output) * 100)}%</td>
+                  <td style={td}>
+                    <DiscountsCell input={q.input} output={q.output} />
+                  </td>
                   <td style={td}>
                     {q.price_list_versions?.uploaded_at ? new Date(q.price_list_versions.uploaded_at).toLocaleString("es-AR") : "—"}
                   </td>

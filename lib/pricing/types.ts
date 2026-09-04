@@ -105,7 +105,7 @@ export type QuoteResult = {
     ajusteHijosPct: (number | null)[];
     segmentoJovenPct: (number | null)[];
   };
-  activePolicies: Array<{ id: string; nombre: string; detalle: string | null }>;
+  activePolicies: Array<{ id: string; nombre: string; detalle: string | null; valorPct: number }>;
   proyeccionCuotas: CuotaProyeccion[];
   recargoInfo: { activo: boolean; pct: number; detalle: string } | null;
 };
