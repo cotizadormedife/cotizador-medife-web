@@ -30,7 +30,7 @@ export default async function AdminUsersPage({
   // de empresa; el listado siempre se muestra ordenado alfabéticamente.
   let allQuery = supabase
     .from("profiles")
-    .select("id, email, nombre, apellido, role, status, disabled_at, empresa_id, empresas(nombre)")
+    .select("id, email, nombre, apellido, role, status, disabled_at, empresa_id, empresas(nombre), created_at")
     .order("nombre", { ascending: true })
     .order("apellido", { ascending: true });
   if (scoped) {
@@ -172,8 +172,10 @@ export default async function AdminUsersPage({
                     empresa_id: u.empresa_id,
                     empresa_nombre: u.empresas?.nombre ?? null,
                     activoUltimos3Meses: (() => {
-                      const last = lastQuoteByUser.get(u.id);
-                      return !!last && new Date(last) >= cutoff;
+                      // RF-55: el conteo de 3 meses arranca desde el alta del
+                      // usuario y se reinicia con cada cotización que hace.
+                      const referencia = lastQuoteByUser.get(u.id) ?? u.created_at;
+                      return new Date(referencia) >= cutoff;
                     })(),
                   }}
                   empresas={empresas}
