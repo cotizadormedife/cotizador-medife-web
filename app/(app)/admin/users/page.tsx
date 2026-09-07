@@ -44,6 +44,23 @@ export default async function AdminUsersPage({
   }
   const { data: all } = await allQuery;
 
+  // RF-55: última cotización de cada usuario, para marcar Activo/Inactivo
+  // (sin ninguna cotización en los últimos 3 meses).
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 3);
+  const userIds = (all ?? []).map((u) => u.id);
+  const lastQuoteByUser = new Map<string, string>();
+  if (userIds.length) {
+    const { data: quotesData } = await supabase
+      .from("quotes")
+      .select("created_by, created_at")
+      .in("created_by", userIds)
+      .order("created_at", { ascending: false });
+    for (const q of quotesData ?? []) {
+      if (!lastQuoteByUser.has(q.created_by)) lastQuoteByUser.set(q.created_by, q.created_at);
+    }
+  }
+
   async function approve(formData: FormData) {
     "use server";
     await approveUserAction(String(formData.get("id")));
@@ -154,6 +171,10 @@ export default async function AdminUsersPage({
                     disabled_at: u.disabled_at,
                     empresa_id: u.empresa_id,
                     empresa_nombre: u.empresas?.nombre ?? null,
+                    activoUltimos3Meses: (() => {
+                      const last = lastQuoteByUser.get(u.id);
+                      return !!last && new Date(last) >= cutoff;
+                    })(),
                   }}
                   empresas={empresas}
                   isSuperAdmin={actor.role === "super_admin"}

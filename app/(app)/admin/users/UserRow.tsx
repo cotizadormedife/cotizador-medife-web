@@ -23,6 +23,7 @@ type UserRowData = {
   disabled_at: string | null;
   empresa_id: string | null;
   empresa_nombre: string | null;
+  activoUltimos3Meses: boolean;
 };
 
 export default function UserRow({
@@ -64,7 +65,12 @@ export default function UserRow({
 
   return (
     <tr>
-      <td style={td}>{user.nombre} {user.apellido}</td>
+      <td style={td}>
+        {user.nombre} {user.apellido}
+        <div style={{ fontSize: 11, fontWeight: 700, color: user.activoUltimos3Meses ? "#1a7f37" : "#c0392b" }}>
+          {user.activoUltimos3Meses ? "Activo" : "Inactivo hace 3 meses"}
+        </div>
+      </td>
       <td style={td}>{user.email}</td>
       <td style={td}>
         {isSuperAdmin && editingEmpresa ? (
