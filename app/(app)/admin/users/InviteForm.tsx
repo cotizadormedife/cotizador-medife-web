@@ -91,7 +91,7 @@ export default function InviteForm({ empresas, lockedEmpresa }: { empresas: Empr
       {result && result.ok && (
         <div style={{ marginTop: 16, padding: 14, border: "1px solid var(--border-default)", borderRadius: 10, background: "var(--brand-orange-focus-bg)" }}>
           <div style={{ fontSize: 13, marginBottom: 8 }}>
-            Usuario creado para <strong>{result.email}</strong>. Compartile este link (es de un solo uso):
+            Usuario creado para <strong>{result.email}</strong>. Compartile este link (es de un solo uso, no vence):
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <input readOnly value={result.link} style={{ flex: "1 1 260px", fontSize: 12 }} onFocus={(e) => e.target.select()} />

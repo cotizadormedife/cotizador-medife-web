@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { checkInviteTokenAction, redeemInviteTokenAction } from "./actions";
 
 type Status = "verifying" | "ready" | "invalid" | "saving" | "done";
 
@@ -27,8 +28,22 @@ function SetPasswordForm() {
     const supabase = createClient();
 
     async function verify() {
+      const invite = searchParams.get("invite");
       const tokenHash = searchParams.get("token_hash");
       const type = searchParams.get("type");
+
+      // RF-21/RF-56/RF-57: link de primer ingreso propio, sin vencimiento —
+      // no pasa por el token_hash/verifyOtp de Supabase.
+      if (invite) {
+        const res = await checkInviteTokenAction(invite);
+        if (!res.ok) {
+          setStatus("invalid");
+          return;
+        }
+        setEmail(res.email);
+        setStatus("ready");
+        return;
+      }
 
       if (tokenHash && type) {
         const { data, error: verifyErr } = await supabase.auth.verifyOtp({
@@ -71,11 +86,30 @@ function SetPasswordForm() {
     }
     setStatus("saving");
     const supabase = createClient();
-    const { error: updErr } = await supabase.auth.updateUser({ password });
-    if (updErr) {
-      setError(updErr.message);
-      setStatus("ready");
-      return;
+    const invite = searchParams.get("invite");
+
+    if (invite) {
+      const res = await redeemInviteTokenAction(invite, password);
+      if (!res.ok) {
+        setError(res.error);
+        setStatus("ready");
+        return;
+      }
+      // El token propio no establece sesión (no depende de Supabase Auth) —
+      // iniciamos sesión normalmente con la contraseña recién definida.
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: res.email, password });
+      if (signInErr) {
+        setError(signInErr.message);
+        setStatus("ready");
+        return;
+      }
+    } else {
+      const { error: updErr } = await supabase.auth.updateUser({ password });
+      if (updErr) {
+        setError(updErr.message);
+        setStatus("ready");
+        return;
+      }
     }
     setStatus("done");
     setTimeout(() => router.push("/quotes"), 1200);

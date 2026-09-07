@@ -8,6 +8,7 @@ import {
   promoteToSuperAdminAction,
   demoteFromAdminAction,
   updateUserEmpresaAction,
+  resendInviteAction,
 } from "./actions";
 import { MEDIFE_EMPRESA_ID, type Empresa } from "@/lib/empresas";
 
@@ -24,6 +25,7 @@ type UserRowData = {
   empresa_id: string | null;
   empresa_nombre: string | null;
   activoUltimos3Meses: boolean;
+  pendingFirstLogin: boolean;
 };
 
 export default function UserRow({
@@ -39,6 +41,31 @@ export default function UserRow({
   const [editingEmpresa, setEditingEmpresa] = useState(false);
   const [empresaId, setEmpresaId] = useState(user.empresa_id ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [newLink, setNewLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  function resendInvite() {
+    setError(null);
+    setCopied(false);
+    startTransition(async () => {
+      const res = await resendInviteAction(user.id);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setNewLink(res.link);
+    });
+  }
+
+  async function copyLink() {
+    if (!newLink) return;
+    try {
+      await navigator.clipboard.writeText(newLink);
+      setCopied(true);
+    } catch {
+      // el navegador puede bloquear el acceso al portapapeles; no es crítico
+    }
+  }
 
   function run(action: () => Promise<void>) {
     setError(null);
@@ -101,9 +128,19 @@ export default function UserRow({
         )}
       </td>
       <td style={td}>{user.role}</td>
-      <td style={td}>{user.disabled_at ? "deshabilitado" : user.status}</td>
+      <td style={td}>
+        {user.disabled_at ? "deshabilitado" : user.status}
+        {user.pendingFirstLogin && (
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--brand-orange)" }}>Pendiente de primer ingreso</div>
+        )}
+      </td>
       <td style={td}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {user.pendingFirstLogin && !user.disabled_at && (
+            <button type="button" onClick={resendInvite} disabled={pending}>
+              Generar nuevo link
+            </button>
+          )}
           {!user.disabled_at ? (
             <button type="button" onClick={() => run(() => deleteUserAction(user.id))} disabled={pending}>
               Eliminar
@@ -133,6 +170,14 @@ export default function UserRow({
           <p role="alert" style={{ color: "#c0392b", fontSize: 12, margin: "4px 0 0" }}>
             {error}
           </p>
+        )}
+        {newLink && (
+          <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+            <input readOnly value={newLink} style={{ flex: "1 1 220px", fontSize: 11, padding: "4px 8px", minHeight: 0 }} onFocus={(e) => e.target.select()} />
+            <button type="button" onClick={copyLink} style={{ padding: "4px 10px", fontSize: 11, minHeight: 0 }}>
+              {copied ? "Copiado ✓" : "Copiar"}
+            </button>
+          </div>
         )}
       </td>
     </tr>

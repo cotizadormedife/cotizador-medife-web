@@ -61,6 +61,18 @@ export default async function AdminUsersPage({
     }
   }
 
+  // RF-56: usuarios creados directamente (RF-21) que todavía no completaron
+  // su primer ingreso (tienen un link sin usar).
+  const pendingFirstLogin = new Set<string>();
+  if (userIds.length) {
+    const { data: inviteData } = await supabase
+      .from("invite_tokens")
+      .select("user_id")
+      .in("user_id", userIds)
+      .is("used_at", null);
+    for (const row of inviteData ?? []) pendingFirstLogin.add(row.user_id);
+  }
+
   async function approve(formData: FormData) {
     "use server";
     await approveUserAction(String(formData.get("id")));
@@ -177,6 +189,7 @@ export default async function AdminUsersPage({
                       const referencia = lastQuoteByUser.get(u.id) ?? u.created_at;
                       return new Date(referencia) >= cutoff;
                     })(),
+                    pendingFirstLogin: pendingFirstLogin.has(u.id),
                   }}
                   empresas={empresas}
                   isSuperAdmin={actor.role === "super_admin"}

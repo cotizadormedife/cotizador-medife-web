@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireRole } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
 import { isMedife } from "@/lib/empresas";
+import { createInviteToken, buildInviteLink } from "@/lib/inviteTokens";
 
 async function logAction(actorId: string, action: string, targetId: string) {
   const supabase = createServiceClient();
@@ -134,10 +135,9 @@ export type InviteUserState = { ok: true; link: string; email: string } | { ok: 
 
 // Crea el usuario directamente (sin pasar por autorregistro) y ya lo deja
 // aprobado — lo creó un admin, no hace falta una segunda aprobación. Se
-// genera un link de primer ingreso para que el usuario defina su propia
-// contraseña; no se envía por email desde acá (el mailer gratuito de
-// Supabase tiene un límite bajo de envíos por hora) — el admin lo comparte
-// por el canal que prefiera.
+// genera un link de primer ingreso propio (RF-21), sin vencimiento, para
+// que el usuario defina su propia contraseña; no se envía por email desde
+// acá — el admin lo comparte por el canal que prefiera.
 export async function inviteUserAction(raw: unknown): Promise<InviteUserState> {
   const actor = await requireRole(["admin", "super_admin"]);
   const parsed = inviteSchema.safeParse(raw);
@@ -154,14 +154,12 @@ export async function inviteUserAction(raw: unknown): Promise<InviteUserState> {
 
   const supabase = createServiceClient();
 
-  const siteUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const { data, error } = await supabase.auth.admin.generateLink({
-    type: "invite",
+  // Se crea sin contraseña (no puede iniciar sesión hasta usar el link de
+  // primer ingreso) y con el email ya confirmado (lo dio de alta un admin).
+  const { data, error } = await supabase.auth.admin.createUser({
     email,
-    options: {
-      data: { nombre, apellido, celular, empresa_id },
-      redirectTo: `${siteUrl}/set-password`,
-    },
+    email_confirm: true,
+    user_metadata: { nombre, apellido, celular, empresa_id },
   });
   if (error || !data?.user) {
     return { ok: false, error: error?.message ?? "No se pudo crear el usuario." };
@@ -174,13 +172,18 @@ export async function inviteUserAction(raw: unknown): Promise<InviteUserState> {
   await logAction(actor.id, "user.invite", data.user.id);
   revalidatePath("/admin/users");
 
-  // Armamos el link directo a nuestra página con token_hash en vez de usar
-  // el action_link crudo de Supabase: ese apunta a su propio endpoint
-  // /verify, que entrega la sesión por fragmento de URL (#access_token=...)
-  // — un formato que nuestro cliente (configurado para flujo PKCE) no
-  // procesa solo. Con token_hash, nuestra propia página hace el intercambio
-  // explícitamente vía verifyOtp(), sin depender de eso.
-  const link = `${siteUrl}/set-password?token_hash=${data.properties.hashed_token}&type=invite`;
+  const token = await createInviteToken(data.user.id, actor.id);
+  return { ok: true, link: buildInviteLink(token), email };
+}
 
-  return { ok: true, link, email };
+export type ResendInviteState = { ok: true; link: string } | { ok: false; error: string };
+
+// RF-57: para un usuario que todavía no completó su primer ingreso, genera
+// un link nuevo (el anterior queda invalidado).
+export async function resendInviteAction(userId: string): Promise<ResendInviteState> {
+  const actor = await requireRole(["admin", "super_admin"]);
+  await assertSameEmpresaScope(actor, userId);
+  const token = await createInviteToken(userId, actor.id);
+  await logAction(actor.id, "user.resend_invite", userId);
+  return { ok: true, link: buildInviteLink(token) };
 }
