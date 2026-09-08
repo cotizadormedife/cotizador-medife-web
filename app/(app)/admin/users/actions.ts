@@ -178,8 +178,11 @@ export async function inviteUserAction(raw: unknown): Promise<InviteUserState> {
 
 export type ResendInviteState = { ok: true; link: string } | { ok: false; error: string };
 
-// RF-57: para un usuario que todavía no completó su primer ingreso, genera
-// un link nuevo (el anterior queda invalidado).
+// RF-57/RF-58: genera un link de primer ingreso nuevo (el anterior queda
+// invalidado) para cualquier usuario aprobado y habilitado — no solo para
+// quien nunca inició sesión. Útil, por ejemplo, justo después de rehabilitar
+// (RF-40) a alguien que había sido eliminado: al usar el link define una
+// contraseña nueva, como si fuera un alta nueva.
 export async function resendInviteAction(userId: string): Promise<ResendInviteState> {
   const actor = await requireRole(["admin", "super_admin"]);
   await assertSameEmpresaScope(actor, userId);

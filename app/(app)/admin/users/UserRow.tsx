@@ -136,9 +136,9 @@ export default function UserRow({
       </td>
       <td style={td}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {user.pendingFirstLogin && !user.disabled_at && (
+          {!user.disabled_at && user.status === "approved" && (
             <button type="button" onClick={resendInvite} disabled={pending}>
-              Generar nuevo link
+              Generar link de primer ingreso
             </button>
           )}
           {!user.disabled_at ? (
