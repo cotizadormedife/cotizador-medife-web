@@ -61,16 +61,21 @@ export default async function AdminUsersPage({
     }
   }
 
-  // RF-56: usuarios creados directamente (RF-21) que todavía no completaron
-  // su primer ingreso (tienen un link sin usar).
+  // RF-56: usuarios aprobados que nunca iniciaron sesión — cubre tanto los
+  // invitados con el link nuevo (sin vencimiento) como los invitados antes
+  // de este cambio, con el link anterior de Supabase (que si ya venció, ya
+  // no les sirve para entrar). Se basa en auth.users.last_sign_in_at en vez
+  // de solo la tabla invite_tokens, para no dejar afuera a esos usuarios ya
+  // invitados previamente.
   const pendingFirstLogin = new Set<string>();
   if (userIds.length) {
-    const { data: inviteData } = await supabase
-      .from("invite_tokens")
-      .select("user_id")
-      .in("user_id", userIds)
-      .is("used_at", null);
-    for (const row of inviteData ?? []) pendingFirstLogin.add(row.user_id);
+    const idSet = new Set(userIds);
+    const { data: usersData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+    for (const u of usersData?.users ?? []) {
+      if (!idSet.has(u.id) || u.last_sign_in_at) continue;
+      const profile = (all ?? []).find((p) => p.id === u.id);
+      if (profile?.status === "approved" && !profile.disabled_at) pendingFirstLogin.add(u.id);
+    }
   }
 
   async function approve(formData: FormData) {
