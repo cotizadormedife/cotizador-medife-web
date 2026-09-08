@@ -29,7 +29,11 @@ export async function redeemInviteTokenAction(token: string, password: string): 
   if (userErr || !userData?.user?.email) {
     return { ok: false, error: "No se pudo verificar el usuario." };
   }
-  const { error: updErr } = await supabase.auth.admin.updateUserById(data.user_id, { password });
+  // Usar el link de primer ingreso ya es, en sí mismo, la confirmación de
+  // que la persona controla esa casilla — no hace falta un segundo paso de
+  // confirmación de email por separado (relevante para usuarios invitados
+  // antes de esta versión, cuyo email todavía no estaba confirmado).
+  const { error: updErr } = await supabase.auth.admin.updateUserById(data.user_id, { password, email_confirm: true });
   if (updErr) return { ok: false, error: updErr.message };
 
   await supabase.from("invite_tokens").update({ used_at: new Date().toISOString() }).eq("token", token);
