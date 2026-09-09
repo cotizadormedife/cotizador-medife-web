@@ -2,6 +2,7 @@
 
 import { requireApprovedUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export type ChangePasswordState = { ok?: boolean; error?: string };
 
@@ -42,4 +43,51 @@ export async function changePasswordAction(
   }
 
   return { ok: true };
+}
+
+export type UpdateProfileState = { ok?: boolean; error?: string; emailChangePending?: boolean };
+
+// RF-59: cada usuario puede editar sus propios datos personales. El email
+// pasa por el flujo estándar de Supabase (link de confirmación a la casilla
+// nueva, misma pantalla que RF-22) — hasta que se confirma, se sigue
+// iniciando sesión con el email anterior. La empresa solo es editable acá
+// para el rol Vendedor: para Admin/Super Admin cambia su alcance de acceso
+// (RF-31/RF-32), y eso sigue siendo exclusivo del Super Admin (RF-37).
+export async function updateProfileAction(
+  _prevState: UpdateProfileState,
+  formData: FormData
+): Promise<UpdateProfileState> {
+  const profile = await requireApprovedUser();
+  const email = String(formData.get("email") || "").trim();
+  const nombre = String(formData.get("nombre") || "").trim();
+  const apellido = String(formData.get("apellido") || "").trim();
+  const celular = String(formData.get("celular") || "").trim();
+  const empresaId = String(formData.get("empresa_id") || "").trim();
+
+  if (!email || !nombre || !apellido || !celular) {
+    return { error: "Completá todos los campos." };
+  }
+
+  const supabase = await createClient();
+  const service = createServiceClient();
+
+  const profileUpdate: Record<string, string> = { nombre, apellido, celular };
+  if (profile.role === "vendedor" && empresaId) {
+    profileUpdate.empresa_id = empresaId;
+  }
+  const { error: profileErr } = await service.from("profiles").update(profileUpdate).eq("id", profile.id);
+  if (profileErr) {
+    return { error: profileErr.message };
+  }
+
+  let emailChangePending = false;
+  if (email !== profile.email) {
+    const { error: emailErr } = await supabase.auth.updateUser({ email });
+    if (emailErr) {
+      return { error: emailErr.message };
+    }
+    emailChangePending = true;
+  }
+
+  return { ok: true, emailChangePending };
 }

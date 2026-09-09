@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { requireApprovedUser } from "@/lib/auth/session";
 import { signOutAction } from "@/lib/auth/actions";
+import { listEmpresas } from "@/lib/empresas";
+import EditProfileModal from "./EditProfileModal";
 
 const LOGO_ORANGE = (
   <svg width="66" height="15" viewBox="0 0 82 19" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -25,6 +27,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireApprovedUser();
+  const empresas = await listEmpresas();
 
   return (
     <div style={{ minHeight: "100vh", background: "#fafafa" }}>
@@ -63,9 +66,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </nav>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Link href="/account" style={{ fontSize: 13, color: "var(--text-neutral)", textDecoration: "none" }}>
-            {profile.nombre} {profile.apellido} · {profile.role}
-          </Link>
+          <EditProfileModal profile={profile} empresas={empresas} />
           <form action={signOutAction}>
             <button type="submit" style={{ background: "transparent", color: "var(--text-neutral)", border: "1px solid var(--border-default)", borderRadius: "var(--radius-button)", padding: "8px 16px", fontWeight: 600, fontSize: 13 }}>
               Cerrar sesión
