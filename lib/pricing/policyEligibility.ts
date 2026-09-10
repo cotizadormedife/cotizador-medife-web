@@ -42,27 +42,28 @@ export function isPolicyRelevant(
   );
 }
 
+// Cubre los 7 tramos reales de Titular/Esposo (RANGOS_BY_TIPO en memberKey.ts).
+// RF-61/RF-62: antes tenía cortes de 5 años (41-45/46-50/51-55/56-60) que no
+// coinciden con ningún valor real del formulario ("41-50"/"51-60"), y usaba
+// "66-00" en vez de "66+" — por eso un Titular/Esposo solo en esos tramos no
+// activaba correctamente los descuentos tácticos con rango de edad en el id.
 const RANGO_STARTS: Record<string, number> = {
   "0-25": 0,
   "26-35": 26,
   "36-40": 36,
-  "41-45": 41,
-  "46-50": 46,
-  "51-55": 51,
-  "56-60": 56,
+  "41-50": 41,
+  "51-60": 51,
   "61-65": 61,
-  "66-00": 66,
+  "66+": 66,
 };
 const RANGO_ENDS: Record<string, number> = {
   "0-25": 25,
   "26-35": 35,
   "36-40": 40,
   "41-50": 50,
-  "21-25": 25,
-  "26-29": 29,
   "51-60": 60,
   "61-65": 65,
-  "66-00": 200,
+  "66+": 200,
 };
 
 // Además de isPolicyRelevant, algunos descuentos tácticos con rango de edad en el id
@@ -79,6 +80,15 @@ export function isPolicyMemberEligible(policy: DiscountPolicy, miembros: Miembro
       const end = RANGO_ENDS[m.rango] ?? -1;
       if (start < 0 || end < 0) return false;
       return end >= minAge && start <= maxAge;
+    });
+  }
+  // RF-61: Opción 6 exige Titular y Cónyuge de hasta 60 años (Hijos y Familiar
+  // a cargo no la afectan).
+  if (policy.id.startsWith("opcion-6")) {
+    return miembros.every((m) => {
+      if (m.tipo !== "Titular" && m.tipo !== "Esposo/a") return true;
+      const r = rangoEfectivo(m);
+      return r !== "61-65" && r !== "66+";
     });
   }
   return true;

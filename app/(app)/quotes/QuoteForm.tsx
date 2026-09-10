@@ -123,6 +123,9 @@ export default function QuoteForm({
       let next = checked ? [...prev, id] : prev.filter((x) => x !== id);
       if (checked && id.startsWith("opcion-4")) next = next.filter((x) => !x.startsWith("opcion-5"));
       if (checked && id.startsWith("opcion-5")) next = next.filter((x) => !x.startsWith("opcion-4"));
+      // RF-60: Opción 1, 2 y 3 son mutuamente excluyentes entre sí.
+      const isUno23 = (x: string) => x.startsWith("opcion-1") || x.startsWith("opcion-2") || x.startsWith("opcion-3");
+      if (checked && isUno23(id)) next = next.filter((x) => x === id || !isUno23(x));
       return next;
     });
   }
