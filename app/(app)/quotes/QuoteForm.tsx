@@ -90,6 +90,13 @@ export default function QuoteForm({
     return RANGOS_BY_TIPO[tipo];
   }
 
+  // RF-63: no puede haber más de un Esposo/a a la vez — se saca esa opción
+  // del combo de los demás integrantes mientras ya haya uno cargado.
+  function tiposFor(idx: number): TipoMiembro[] {
+    const hayOtroEsposo = miembros.some((mm, i) => i !== idx && mm.tipo === "Esposo/a");
+    return hayOtroEsposo ? TIPOS.filter((t) => t !== "Esposo/a") : TIPOS;
+  }
+
   function addMiembro() {
     setMiembros((ms) => [...ms, { tipo: "Hijo/a", rango: rangosFor("Hijo/a")[0] }]);
   }
@@ -243,8 +250,12 @@ export default function QuoteForm({
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 8 }}>
                 <label style={{ ...labelStyle, flex: "1 1 160px" }}>
                   Tipo
-                  <select value={m.tipo} onChange={(e) => onTipoChange(idx, e.target.value as TipoMiembro)}>
-                    {TIPOS.map((t) => (
+                  <select
+                    value={m.tipo}
+                    disabled={idx === 0}
+                    onChange={(e) => onTipoChange(idx, e.target.value as TipoMiembro)}
+                  >
+                    {tiposFor(idx).map((t) => (
                       <option key={t} value={t}>
                         {t}
                       </option>
