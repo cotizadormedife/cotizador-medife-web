@@ -36,7 +36,7 @@ export default function UploadForm() {
         <div style={{ marginTop: 16, padding: 14, border: "1px solid var(--border-default)", borderRadius: 10, background: "var(--brand-orange-focus-bg)" }}>
           <p style={{ margin: "0 0 8px", fontSize: 14 }}>
             ✅ Se interpretaron <strong>{state.report.totalCells}</strong> celdas de precio, en las regiones:{" "}
-            {state.report.regionsParsed.join(", ")}.
+            {state.report.regionsParsed.join(", ")}. Vigencia asignada: <strong>{state.vigenciaLabel}</strong>.
           </p>
           {state.report.warnings.length > 0 && (
             <div style={{ fontSize: 13 }}>

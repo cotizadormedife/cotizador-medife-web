@@ -106,7 +106,7 @@ export default function QuoteDetailActions({
                 filial: meta.filial,
                 categoria: meta.categoria,
                 procedencia: input?.procedencia === "comprobable" ? "Comprobable" : "Sin procedencia",
-                vigencia: meta.vigencia === "actual" ? "Mes actual" : meta.vigencia === "siguiente" ? "Mes siguiente" : undefined,
+                vigencia: meta.vigencia,
               }}
             />
           </div>

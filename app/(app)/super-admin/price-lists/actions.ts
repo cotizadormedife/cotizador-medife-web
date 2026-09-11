@@ -4,10 +4,16 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
 import { parsePriceList } from "@/lib/excel/parsePriceList";
+import { computeNextVigencia } from "@/lib/pricing/repository";
 import { logAction } from "@/lib/auditLog";
 
 export type UploadState =
-  | { ok: true; versionId: string; report: { totalCells: number; warnings: string[]; errors: string[]; regionsParsed: string[] } }
+  | {
+      ok: true;
+      versionId: string;
+      vigenciaLabel: string;
+      report: { totalCells: number; warnings: string[]; errors: string[]; regionsParsed: string[] };
+    }
   | { ok: false; error: string };
 
 export async function uploadPriceListAction(formData: FormData): Promise<UploadState> {
@@ -34,6 +40,10 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
 
   const supabase = createServiceClient();
 
+  // RF-64: la vigencia se asigna sola, siempre correlativa a la más nueva ya
+  // cargada — nunca se elige a mano.
+  const vigencia = await computeNextVigencia();
+
   const { data: version, error: versionErr } = await supabase
     .from("price_list_versions")
     .insert({
@@ -41,6 +51,8 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
       status: "draft",
       uploaded_by: actor.id,
       parse_report: parsed.report,
+      vigencia_anio: vigencia.anio,
+      vigencia_mes: vigencia.mes,
     })
     .select("id")
     .single();
@@ -68,7 +80,7 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
   await logAction({ actorId: actor.id, action: "price_list.upload", targetType: "price_list_version", targetId: version.id, meta: parsed.report });
 
   revalidatePath("/super-admin/price-lists");
-  return { ok: true, versionId: version.id, report: parsed.report };
+  return { ok: true, versionId: version.id, vigenciaLabel: vigencia.label, report: parsed.report };
 }
 
 export type ToggleHabilitadaState = { ok: true } | { ok: false; error: string };

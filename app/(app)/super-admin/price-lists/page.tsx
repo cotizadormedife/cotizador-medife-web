@@ -1,14 +1,19 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { computeNextVigencia } from "@/lib/pricing/repository";
+import { formatVigencia } from "@/lib/pricing/vigencia";
 import UploadForm from "./UploadForm";
 import ActivateButton from "./ActivateButton";
 import ToggleHabilitadaButton from "./ToggleHabilitadaButton";
 
 export default async function PriceListsPage() {
   const supabase = createServiceClient();
-  const { data: versionsData } = await supabase
-    .from("price_list_versions")
-    .select("id, source_filename, status, habilitada, uploaded_at, activated_at, parse_report, uploader:profiles!price_list_versions_uploaded_by_fkey(nombre, apellido), activator:profiles!price_list_versions_activated_by_fkey(nombre, apellido)")
-    .order("uploaded_at", { ascending: false });
+  const [{ data: versionsData }, nextVigencia] = await Promise.all([
+    supabase
+      .from("price_list_versions")
+      .select("id, source_filename, status, habilitada, vigencia_anio, vigencia_mes, uploaded_at, activated_at, parse_report, uploader:profiles!price_list_versions_uploaded_by_fkey(nombre, apellido), activator:profiles!price_list_versions_activated_by_fkey(nombre, apellido)")
+      .order("uploaded_at", { ascending: false }),
+    computeNextVigencia(),
+  ]);
   const versions = (versionsData ?? []) as any[];
 
   const active = versions.find((v: any) => v.status === "active");
@@ -21,7 +26,8 @@ export default async function PriceListsPage() {
         <h2 style={{ fontSize: 16, margin: "0 0 10px" }}>Versión activa</h2>
         {active ? (
           <p style={{ fontSize: 14, color: "var(--text-neutral)", margin: 0 }}>
-            <strong>{active.source_filename}</strong> — activada el{" "}
+            <strong>{formatVigencia({ anio: active.vigencia_anio, mes: active.vigencia_mes })}</strong> (
+            {active.source_filename}) — activada el{" "}
             {active.activated_at ? new Date(active.activated_at).toLocaleString("es-AR") : "—"}
             {active.activator ? ` por ${active.activator.nombre} ${active.activator.apellido}` : ""}
           </p>
@@ -34,7 +40,8 @@ export default async function PriceListsPage() {
         <h2 style={{ fontSize: 16, margin: "0 0 10px" }}>Cargar nueva lista de precios</h2>
         <p style={{ fontSize: 13, color: "var(--text-neutral)", margin: "0 0 16px" }}>
           Subí el archivo .xlsx con la hoja "Resumen LP". Se valida e interpreta antes de activarla — la
-          carga queda en borrador hasta que la actives explícitamente.
+          carga queda en borrador hasta que la actives explícitamente. La próxima que subas quedará con
+          vigencia <strong>{formatVigencia(nextVigencia)}</strong>, asignada automáticamente.
         </p>
         <UploadForm />
       </div>
@@ -45,6 +52,7 @@ export default async function PriceListsPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
+                <th style={th}>Vigencia</th>
                 <th style={th}>Archivo</th>
                 <th style={th}>Estado</th>
                 <th style={th}>Habilitada</th>
@@ -58,6 +66,9 @@ export default async function PriceListsPage() {
             <tbody>
               {(versions ?? []).map((v: any) => (
                 <tr key={v.id}>
+                  <td style={td}>
+                    <strong>{formatVigencia({ anio: v.vigencia_anio, mes: v.vigencia_mes })}</strong>
+                  </td>
                   <td style={td}>{v.source_filename}</td>
                   <td style={td}>{v.status}</td>
                   <td style={td}>{v.status === "draft" ? "—" : v.habilitada ? "Sí" : "No"}</td>

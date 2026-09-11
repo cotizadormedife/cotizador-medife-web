@@ -1,4 +1,10 @@
-import { getRegionsAndFiliales, loadAllDiscountPolicies, listSelectablePriceListVersions, getPriceListVersionInfo } from "@/lib/pricing/repository";
+import {
+  getRegionsAndFiliales,
+  loadAllDiscountPolicies,
+  listSelectablePriceListVersions,
+  getPriceListVersionInfo,
+  getVigenciaSelection,
+} from "@/lib/pricing/repository";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
 import QuoteForm, { type QuoteFormInitial } from "./QuoteForm";
@@ -10,11 +16,12 @@ export default async function QuotesPage({
 }) {
   const { rehacer } = await searchParams;
 
-  const [{ regions, filiales }, policies, profile, selectablePriceListVersions] = await Promise.all([
+  const [{ regions, filiales }, policies, profile, selectablePriceListVersions, vigenciaSelection] = await Promise.all([
     getRegionsAndFiliales(),
     loadAllDiscountPolicies(),
     getCurrentProfile(),
     listSelectablePriceListVersions(),
+    getVigenciaSelection(),
   ]);
 
   let initial: QuoteFormInitial | null = null;
@@ -38,7 +45,7 @@ export default async function QuotesPage({
         categoria: input.categoria,
         procedencia: input.procedencia,
         filial: input.filial,
-        vigencia: (quote.vigencia as "actual" | "siguiente") ?? "actual",
+        vigencia: quote.vigencia ?? "",
         miembros: input.miembros,
         selectedPolicyIds: input.selectedPolicyIds,
         priceListVersionId: quote.price_list_version_id,
@@ -57,12 +64,23 @@ export default async function QuotesPage({
     }
   }
 
+  // RF-65: la lista de "mes siguiente" puede seguir en borrador — no forma
+  // parte de selectablePriceListVersions (RF-41), así que se agrega aparte
+  // para que el combo "Lista de precios" la pueda mostrar seleccionada.
+  if (vigenciaSelection.siguiente && !priceListVersions.some((v) => v.id === vigenciaSelection.siguiente!.id)) {
+    const siguiente = await getPriceListVersionInfo(vigenciaSelection.siguiente.id);
+    if (siguiente) {
+      priceListVersions = [siguiente, ...priceListVersions];
+    }
+  }
+
   return (
     <QuoteForm
       regions={regions}
       filiales={filiales}
       policies={policies}
       priceListVersions={priceListVersions}
+      vigenciaSelection={vigenciaSelection}
       vendedorDefault={`${profile?.nombre ?? ""} ${profile?.apellido ?? ""}`.trim()}
       initial={initial}
     />

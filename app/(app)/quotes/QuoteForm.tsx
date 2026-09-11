@@ -10,7 +10,9 @@ import QuoteResults, { fmtPct } from "./QuoteResults";
 
 type Region = { code: string; nombre: string; sort_order: number };
 type Filial = { code: string; region_code: string; nombre: string; sort_order: number };
-type PriceListVersion = { id: string; sourceFilename: string; uploadedAt: string; disabled?: boolean };
+type PriceListVersion = { id: string; sourceFilename: string; uploadedAt: string; vigenciaLabel: string; disabled?: boolean };
+type VigenciaOption = { id: string; label: string };
+type VigenciaSelection = { actual: VigenciaOption | null; actualEsFallback: boolean; siguiente: VigenciaOption | null };
 
 const MONOTRIBUTO_CATS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"];
 const TIPOS: TipoMiembro[] = ["Titular", "Esposo/a", "Hijo/a", "Familiar a cargo"];
@@ -31,7 +33,7 @@ export type QuoteFormInitial = {
   categoria: "Vol" | "Obl";
   procedencia: "Otros" | "comprobable";
   filial: string;
-  vigencia: "actual" | "siguiente";
+  vigencia: string;
   miembros: Miembro[];
   selectedPolicyIds: string[];
   priceListVersionId?: string;
@@ -42,6 +44,7 @@ export default function QuoteForm({
   filiales,
   policies,
   priceListVersions,
+  vigenciaSelection,
   vendedorDefault,
   initial,
 }: {
@@ -49,6 +52,7 @@ export default function QuoteForm({
   filiales: Filial[];
   policies: DiscountPolicy[];
   priceListVersions: PriceListVersion[];
+  vigenciaSelection: VigenciaSelection;
   vendedorDefault: string;
   initial?: QuoteFormInitial | null;
 }) {
@@ -57,14 +61,21 @@ export default function QuoteForm({
   const [region, setRegion] = useState(initial?.region ?? regions[0]?.code ?? "AMBA");
   const [categoria, setCategoria] = useState<"Vol" | "Obl">(initial?.categoria ?? "Vol");
   const [procedencia, setProcedencia] = useState<"Otros" | "comprobable">(initial?.procedencia ?? "Otros");
-  const [vigencia, setVigencia] = useState<"actual" | "siguiente">(initial?.vigencia ?? "actual");
   const filialesRegion = useMemo(() => filiales.filter((f) => f.region_code === region), [filiales, region]);
   const [filial, setFilial] = useState(initial?.filial ?? filialesRegion[0]?.code ?? "");
   const [miembros, setMiembros] = useState<Miembro[]>(initial?.miembros ?? [{ tipo: "Titular", rango: "36-40" }]);
   const [selectedPolicyIds, setSelectedPolicyIds] = useState<string[]>(initial?.selectedPolicyIds ?? []);
   const [priceListVersionId, setPriceListVersionId] = useState(
-    initial?.priceListVersionId ?? priceListVersions[0]?.id ?? ""
+    initial?.priceListVersionId ?? vigenciaSelection.actual?.id ?? priceListVersions[0]?.id ?? ""
   );
+  // RF-65: el label real (Septiembre 2026, etc.) de la lista efectivamente
+  // elegida — reemplaza al viejo "Mes actual"/"Mes siguiente" cosmético.
+  const vigenciaLabel =
+    priceListVersions.find((v) => v.id === priceListVersionId)?.vigenciaLabel ??
+    (priceListVersionId === vigenciaSelection.actual?.id ? vigenciaSelection.actual.label : undefined) ??
+    (priceListVersionId === vigenciaSelection.siguiente?.id ? vigenciaSelection.siguiente.label : undefined) ??
+    initial?.vigencia ??
+    "";
   const [state, setState] = useState<RunQuoteState | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -155,7 +166,7 @@ export default function QuoteForm({
         categoria,
         procedencia,
         filial,
-        vigencia,
+        vigencia: vigenciaLabel,
         miembros,
         selectedPolicyIds,
         priceListVersionId,
@@ -225,15 +236,22 @@ export default function QuoteForm({
             </div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Vigencia</div>
-              <OptionGroup
-                name="vigencia"
-                value={vigencia}
-                onChange={setVigencia}
-                options={[
-                  { value: "actual", label: "Mes actual" },
-                  { value: "siguiente", label: "Mes siguiente" },
-                ]}
-              />
+              {(vigenciaSelection.actual || vigenciaSelection.siguiente) && (
+                <OptionGroup
+                  name="vigencia"
+                  value={priceListVersionId}
+                  onChange={setPriceListVersionId}
+                  options={[
+                    ...(vigenciaSelection.actual ? [{ value: vigenciaSelection.actual.id, label: vigenciaSelection.actual.label }] : []),
+                    ...(vigenciaSelection.siguiente
+                      ? [{ value: vigenciaSelection.siguiente.id, label: vigenciaSelection.siguiente.label }]
+                      : []),
+                  ]}
+                />
+              )}
+              {vigenciaSelection.actualEsFallback && (
+                <p style={{ fontSize: 12, color: "#c0392b", margin: "6px 0 0" }}>No hay lista actual.</p>
+              )}
             </div>
           </div>
         </div>
@@ -343,7 +361,7 @@ export default function QuoteForm({
             <select value={priceListVersionId} onChange={(e) => setPriceListVersionId(e.target.value)}>
               {priceListVersions.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {new Date(v.uploadedAt).toLocaleString("es-AR")}
+                  {v.vigenciaLabel} — {new Date(v.uploadedAt).toLocaleString("es-AR")}
                   {v.disabled ? " (deshabilitada)" : ""}
                 </option>
               ))}
@@ -374,7 +392,7 @@ export default function QuoteForm({
               filial: filialesRegion.find((f) => f.code === filial)?.nombre ?? filial,
               categoria,
               procedencia: procedencia === "comprobable" ? "Comprobable" : "Sin procedencia",
-              vigencia: vigencia === "actual" ? "Mes actual" : "Mes siguiente",
+              vigencia: vigenciaLabel,
             }}
           />
         )}
