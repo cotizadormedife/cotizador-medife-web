@@ -12,7 +12,7 @@ if (!connectionString) {
   process.exit(1);
 }
 
-const client = new pg.Client({ connectionString, ssl: { rejectUnauthorized: false } });
+const client = new pg.Client({ connectionString, ssl: { rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0' } });
 
 const files = readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort();
 

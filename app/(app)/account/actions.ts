@@ -3,6 +3,8 @@
 import { requireApprovedUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { MEDIFE_EMPRESA_ID } from "@/lib/empresas";
+import { logAction } from "@/lib/auditLog";
 
 export type ChangePasswordState = { ok?: boolean; error?: string };
 
@@ -72,12 +74,26 @@ export async function updateProfileAction(
   const service = createServiceClient();
 
   const profileUpdate: Record<string, string> = { nombre, apellido, celular };
-  if (profile.role === "vendedor" && empresaId) {
+  if (profile.role === "vendedor" && empresaId && empresaId !== profile.empresa_id) {
+    // T-A3: valida que sea una empresa real (no cualquier string) y evita que
+    // un vendedor se autoasigne Medife, lo que ampliaría su alcance si más
+    // adelante lo ascienden a Admin (RF-32). Cambiar a Medife sigue siendo
+    // potestad exclusiva del Super Admin (RF-37).
+    if (empresaId === MEDIFE_EMPRESA_ID) {
+      return { error: "No podés autoasignarte la empresa Medife. Pedile a un Super Admin que lo haga." };
+    }
+    const { data: empresaExists } = await service.from("empresas").select("id").eq("id", empresaId).maybeSingle();
+    if (!empresaExists) {
+      return { error: "La empresa seleccionada no existe." };
+    }
     profileUpdate.empresa_id = empresaId;
   }
   const { error: profileErr } = await service.from("profiles").update(profileUpdate).eq("id", profile.id);
   if (profileErr) {
     return { error: profileErr.message };
+  }
+  if (profileUpdate.empresa_id) {
+    await logAction({ actorId: profile.id, action: "user.change_empresa", targetType: "profile", targetId: profile.id });
   }
 
   let emailChangePending = false;

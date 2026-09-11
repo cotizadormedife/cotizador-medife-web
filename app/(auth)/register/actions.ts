@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 const schema = z.object({
   email: z.string().email("Ingresá un email válido."),
@@ -30,6 +31,13 @@ export async function registerAction(
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  // T-A4: sin esto, registerAction permite creación masiva de cuentas.
+  const ip = await getClientIp();
+  const okIp = await checkRateLimit(`register:ip:${ip}`, { max: 10, windowMinutes: 30 });
+  if (!okIp) {
+    return { error: "Demasiados intentos. Esperá unos minutos y volvé a intentar." };
   }
 
   const { email, password, nombre, apellido, celular, empresa_id } = parsed.data;

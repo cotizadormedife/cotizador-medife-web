@@ -6,12 +6,10 @@ import { requireRole } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
 import { isMedife } from "@/lib/empresas";
 import { createInviteToken, buildInviteLink } from "@/lib/inviteTokens";
+import { logAction as logAuditAction } from "@/lib/auditLog";
 
-async function logAction(actorId: string, action: string, targetId: string) {
-  const supabase = createServiceClient();
-  await supabase
-    .from("audit_log")
-    .insert({ actor_id: actorId, action, target_type: "profile", target_id: targetId });
+function logAction(actorId: string, action: string, targetId: string) {
+  return logAuditAction({ actorId, action, targetType: "profile", targetId });
 }
 
 // Un Admin de una empresa distinta de Medife solo puede gestionar usuarios
@@ -23,6 +21,21 @@ async function assertSameEmpresaScope(actor: { role: string; empresa_id: string 
   const { data: target } = await supabase.from("profiles").select("empresa_id").eq("id", targetUserId).single();
   if (!target || target.empresa_id !== actor.empresa_id) {
     throw new Error("No tenés permiso sobre un usuario de otra empresa.");
+  }
+}
+
+// Un Admin de Medife tiene el mismo alcance transversal que assertSameEmpresaScope
+// deja pasar sin control adicional — sin este chequeo podría rechazar, dar de
+// baja o degradar a un Super Admin. Se suma la prohibición de auto-aplicarse
+// la acción (no tiene sentido rechazarse, eliminarse o "ascenderse" a sí mismo).
+async function assertActionableTarget(actor: { id: string }, targetUserId: string) {
+  if (actor.id === targetUserId) {
+    throw new Error("No podés aplicar esta acción sobre tu propia cuenta.");
+  }
+  const supabase = createServiceClient();
+  const { data: target } = await supabase.from("profiles").select("role").eq("id", targetUserId).single();
+  if (target?.role === "super_admin") {
+    throw new Error("No se puede modificar a un Super Administrador por esta vía.");
   }
 }
 
@@ -40,6 +53,7 @@ export async function approveUserAction(userId: string) {
 
 export async function rejectUserAction(userId: string) {
   const actor = await requireRole(["admin", "super_admin"]);
+  await assertActionableTarget(actor, userId);
   await assertSameEmpresaScope(actor, userId);
   const supabase = createServiceClient();
   await supabase.from("profiles").update({ status: "rejected" }).eq("id", userId);
@@ -51,6 +65,7 @@ export async function rejectUserAction(userId: string) {
 // pero se bloquea el acceso y se revoca cualquier sesión activa.
 export async function deleteUserAction(userId: string) {
   const actor = await requireRole(["admin", "super_admin"]);
+  await assertActionableTarget(actor, userId);
   await assertSameEmpresaScope(actor, userId);
   const supabase = createServiceClient();
   await supabase.from("profiles").update({ disabled_at: new Date().toISOString() }).eq("id", userId);
@@ -78,6 +93,7 @@ export async function reactivateUserAction(userId: string) {
 // el Super Admin no tienen esa restricción.
 export async function promoteToAdminAction(userId: string) {
   const actor = await requireRole(["admin", "super_admin"]);
+  await assertActionableTarget(actor, userId);
   await assertSameEmpresaScope(actor, userId);
   const supabase = createServiceClient();
   await supabase.from("profiles").update({ role: "admin" }).eq("id", userId).eq("status", "approved");

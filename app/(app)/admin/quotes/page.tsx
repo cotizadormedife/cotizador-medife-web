@@ -58,7 +58,22 @@ export default async function AdminQuotesPage({
       ? query.order("created_by", { ascending: true })
       : query.order("created_at", { ascending: false });
 
-  const { data: quotes, error } = await query;
+  // T-A6: sin tope, esta consulta podía traer el padrón completo de
+  // asociados (con sueldo, obra social, etc.) de una sola vez.
+  const QUOTES_HARD_CAP = 1000;
+  const { data: quotes, error } = await query.limit(QUOTES_HARD_CAP);
+
+  // T-A6: acceso masivo de lectura al padrón — se registra para que quede
+  // detectable (Pilar 6.4). Se espera el insert (una promesa sin await no
+  // llega a ejecutarse de forma confiable una vez que el Server Component
+  // termina de renderizar), pero un fallo acá no bloquea la carga de la
+  // página — es un log, no una mutación de negocio.
+  await supabase.from("audit_log").insert({
+    actor_id: actor.id,
+    action: "quotes.bulk_read",
+    target_type: "quotes",
+    meta: { count: quotes?.length ?? 0, filtros: { desde, hasta, usuario, empresa, numero } },
+  });
 
   return (
     <div>

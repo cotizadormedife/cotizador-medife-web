@@ -22,7 +22,9 @@ export default async function HistoryPage({
   if (numero) query = query.eq("quote_number", Number(numero));
   query = query.order("created_at", { ascending: false });
 
-  const { data: quotes } = await query;
+  // T-A6: tope defensivo — es el historial propio del usuario, no el padrón
+  // completo, pero ninguna consulta del proyecto debería quedar sin límite.
+  const { data: quotes } = await query.limit(1000);
 
   return (
     <div>

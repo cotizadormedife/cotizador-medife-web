@@ -6,6 +6,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { loadPricingData } from "@/lib/pricing/repository";
 import { computeQuote } from "@/lib/pricing/engine";
 import type { QuoteInput, QuoteResult } from "@/lib/pricing/types";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 const miembroSchema = z.object({
   tipo: z.enum(["Titular", "Esposo/a", "Hijo/a", "Familiar a cargo"]),
@@ -34,6 +35,14 @@ export type RunQuoteState =
 
 export async function runQuoteAction(raw: unknown): Promise<RunQuoteState> {
   const profile = await requireApprovedUser();
+
+  // T-A4: sin límite, runQuoteAction es superficie de abuso de cómputo. El
+  // umbral es generoso — un vendedor real no lo alcanza en uso normal.
+  const okUsuario = await checkRateLimit(`quote:user:${profile.id}`, { max: 60, windowMinutes: 1 });
+  if (!okUsuario) {
+    return { ok: false, error: "Demasiadas cotizaciones en poco tiempo. Esperá un momento y volvé a intentar." };
+  }
+
   const parsed = inputSchema.safeParse(raw);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };

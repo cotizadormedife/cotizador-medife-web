@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
 import { parsePriceList } from "@/lib/excel/parsePriceList";
+import { logAction } from "@/lib/auditLog";
 
 export type UploadState =
   | { ok: true; versionId: string; report: { totalCells: number; warnings: string[]; errors: string[]; regionsParsed: string[] } }
@@ -64,9 +65,7 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     return { ok: false, error: "No se pudieron guardar los precios: " + pricesErr.message };
   }
 
-  await supabase
-    .from("audit_log")
-    .insert({ actor_id: actor.id, action: "price_list.upload", target_type: "price_list_version", target_id: version.id, meta: parsed.report });
+  await logAction({ actorId: actor.id, action: "price_list.upload", targetType: "price_list_version", targetId: version.id, meta: parsed.report });
 
   revalidatePath("/super-admin/price-lists");
   return { ok: true, versionId: version.id, report: parsed.report };
@@ -100,11 +99,11 @@ export async function toggleHabilitadaAction(versionId: string, habilitar: boole
   const { error } = await supabase.from("price_list_versions").update({ habilitada: habilitar }).eq("id", versionId);
   if (error) return { ok: false, error: error.message };
 
-  await supabase.from("audit_log").insert({
-    actor_id: actor.id,
+  await logAction({
+    actorId: actor.id,
     action: habilitar ? "price_list.enable" : "price_list.disable",
-    target_type: "price_list_version",
-    target_id: versionId,
+    targetType: "price_list_version",
+    targetId: versionId,
   });
 
   revalidatePath("/super-admin/price-lists");
@@ -129,9 +128,7 @@ export async function activatePriceListAction(versionId: string) {
     return { ok: false, error: error.message };
   }
 
-  await supabase
-    .from("audit_log")
-    .insert({ actor_id: actor.id, action: "price_list.activate", target_type: "price_list_version", target_id: versionId });
+  await logAction({ actorId: actor.id, action: "price_list.activate", targetType: "price_list_version", targetId: versionId });
 
   revalidatePath("/super-admin/price-lists");
   return { ok: true };

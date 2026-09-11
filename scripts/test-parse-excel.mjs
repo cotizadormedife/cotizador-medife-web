@@ -106,7 +106,7 @@ const { prices, report } = await parsePriceList(buf.buffer.slice(buf.byteOffset,
 
 console.log("Report:", JSON.stringify(report, null, 2));
 
-const client = new pg.Client({ connectionString: process.env.MIGRATION_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+const client = new pg.Client({ connectionString: process.env.MIGRATION_DATABASE_URL, ssl: { rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0' } });
 await client.connect();
 const { rows: dbRows } = await client.query(
   `select region_code, categoria, age_bracket_code, plan_code, monto

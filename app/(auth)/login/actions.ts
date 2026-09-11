@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export type LoginState = { error?: string };
 
@@ -14,6 +15,14 @@ export async function loginAction(
 
   if (!email || !password) {
     return { error: "Ingresá email y contraseña." };
+  }
+
+  // T-A4: sin esto, loginAction es fuerza bruta libre de credenciales.
+  const ip = await getClientIp();
+  const okIp = await checkRateLimit(`login:ip:${ip}`, { max: 20, windowMinutes: 15 });
+  const okEmail = await checkRateLimit(`login:email:${email.toLowerCase()}`, { max: 8, windowMinutes: 15 });
+  if (!okIp || !okEmail) {
+    return { error: "Demasiados intentos. Esperá unos minutos y volvé a intentar." };
   }
 
   const supabase = await createClient();

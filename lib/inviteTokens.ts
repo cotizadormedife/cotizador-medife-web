@@ -1,5 +1,11 @@
-import { randomBytes } from "crypto";
+import { randomBytes, createHash } from "crypto";
 import { createServiceClient } from "@/lib/supabase/service";
+
+// T-A2: se guarda solo el hash del token — el valor en claro nunca se
+// persiste, solo viaja en el link que recibe el usuario.
+export function hashInviteToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
 
 // RF-21/RF-56/RF-57: token propio de la aplicación para el link de primer
 // ingreso, sin vencimiento (a diferencia del token_hash de Supabase Auth,
@@ -9,7 +15,7 @@ export async function createInviteToken(userId: string, createdBy: string | null
   const supabase = createServiceClient();
   await supabase.from("invite_tokens").update({ used_at: new Date().toISOString() }).eq("user_id", userId).is("used_at", null);
   const token = randomBytes(24).toString("base64url");
-  const { error } = await supabase.from("invite_tokens").insert({ token, user_id: userId, created_by: createdBy });
+  const { error } = await supabase.from("invite_tokens").insert({ token_hash: hashInviteToken(token), user_id: userId, created_by: createdBy });
   if (error) throw error;
   return token;
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
+import { logAction } from "@/lib/auditLog";
 
 const empresaSchema = z.object({
   nombre: z.string().min(1, "Ingresá el nombre.").max(200),
@@ -23,9 +24,7 @@ export async function createEmpresaAction(raw: unknown): Promise<EmpresaFormStat
   if (error) {
     return { ok: false, error: error.code === "23505" ? "Ya existe una empresa con ese nombre." : error.message };
   }
-  await supabase
-    .from("audit_log")
-    .insert({ actor_id: actor.id, action: "empresa.create", target_type: "empresa", meta: parsed.data });
+  await logAction({ actorId: actor.id, action: "empresa.create", targetType: "empresa", meta: parsed.data });
   revalidatePath("/super-admin/empresas");
   return { ok: true };
 }
@@ -41,9 +40,7 @@ export async function updateEmpresaAction(id: string, raw: unknown): Promise<Emp
   if (error) {
     return { ok: false, error: error.code === "23505" ? "Ya existe una empresa con ese nombre." : error.message };
   }
-  await supabase
-    .from("audit_log")
-    .insert({ actor_id: actor.id, action: "empresa.update", target_type: "empresa", target_id: id, meta: parsed.data });
+  await logAction({ actorId: actor.id, action: "empresa.update", targetType: "empresa", targetId: id, meta: parsed.data });
   revalidatePath("/super-admin/empresas");
   return { ok: true };
 }
