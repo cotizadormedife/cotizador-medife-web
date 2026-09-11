@@ -94,6 +94,13 @@ export function isPolicyMemberEligible(policy: DiscountPolicy, miembros: Miembro
   return true;
 }
 
+// RF-61: Opción 6 solo es válida si Opción 4 también está seleccionada —
+// no existe de forma independiente.
+export function isOpcion6Allowed(policyId: string, selectedIds: string[]): boolean {
+  if (!policyId.startsWith("opcion-6")) return true;
+  return selectedIds.some((id) => id.startsWith("opcion-4"));
+}
+
 // Elegibilidad de un usuario individual seleccionable: excluye las 4 categorías
 // "automáticas" (ajuste-lista-hijos, segmento-joven-*, descuento-filial-*) — esas
 // nunca se muestran como checkbox, se aplican solas.

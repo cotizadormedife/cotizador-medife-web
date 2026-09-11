@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { runQuoteAction, type RunQuoteState } from "./actions";
 import { RANGOS_BY_TIPO, RANGOS_HIJO_INTERIOR } from "@/lib/pricing/memberKey";
-import { isAutoPolicy, isPolicyMemberEligible, isPolicyRelevant } from "@/lib/pricing/policyEligibility";
+import { isAutoPolicy, isOpcion6Allowed, isPolicyMemberEligible, isPolicyRelevant } from "@/lib/pricing/policyEligibility";
 import type { DiscountPolicy, Miembro, TipoMiembro } from "@/lib/pricing/types";
 import OptionGroup from "./OptionGroup";
 import QuoteResults, { fmtPct } from "./QuoteResults";
@@ -122,9 +122,10 @@ export default function QuoteForm({
         !isAutoPolicy(p) &&
         p.tipo !== "recargo" &&
         isPolicyRelevant(p, { region, categoria, procedencia, filial }) &&
-        isPolicyMemberEligible(p, miembros, isAMBA)
+        isPolicyMemberEligible(p, miembros, isAMBA) &&
+        isOpcion6Allowed(p.id, selectedPolicyIds)
     );
-  }, [policies, region, categoria, procedencia, filial, miembros]);
+  }, [policies, region, categoria, procedencia, filial, miembros, selectedPolicyIds]);
 
   const gaf = selectable.filter((p) => getSection(p) === "gaf");
   const estrategico = selectable.filter((p) => getSection(p) === "estrategico");
@@ -138,6 +139,8 @@ export default function QuoteForm({
       // RF-60: Opción 1, 2 y 3 son mutuamente excluyentes entre sí.
       const isUno23 = (x: string) => x.startsWith("opcion-1") || x.startsWith("opcion-2") || x.startsWith("opcion-3");
       if (checked && isUno23(id)) next = next.filter((x) => x === id || !isUno23(x));
+      // RF-61: sin Opción 4 seleccionada, Opción 6 no es válida — se destilda sola.
+      if (!next.some((x) => x.startsWith("opcion-4"))) next = next.filter((x) => !x.startsWith("opcion-6"));
       return next;
     });
   }

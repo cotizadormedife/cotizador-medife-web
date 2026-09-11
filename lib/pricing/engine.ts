@@ -5,6 +5,7 @@ import {
   findAjusteHijosPolicy,
   findDescuentoFilialPolicy,
   findSegmentoJovenPolicies,
+  isOpcion6Allowed,
   isPolicyRelevant,
 } from "./policyEligibility";
 
@@ -120,8 +121,14 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
   });
 
   // 6. Descuentos comerciales seleccionados por el usuario
+  // RF-61: Opción 6 nunca se aplica si Opción 4 no está también seleccionada
+  // — se valida acá además del formulario, para que no dependa solo del
+  // cliente.
   const selectedPolicies = data.policies.filter(
-    (p) => input.selectedPolicyIds.includes(p.id) && isPolicyRelevant(p, ctx)
+    (p) =>
+      input.selectedPolicyIds.includes(p.id) &&
+      isPolicyRelevant(p, ctx) &&
+      isOpcion6Allowed(p.id, input.selectedPolicyIds)
   );
   const gafPolicies = selectedPolicies.filter((p) => p.procedenciaGate === "GAF");
   const allBlanketPolicies = selectedPolicies.filter(
