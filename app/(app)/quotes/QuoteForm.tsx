@@ -355,20 +355,6 @@ export default function QuoteForm({
           <DiscountSection title="Descuentos tácticos" items={tactico} selected={selectedPolicyIds} onToggle={togglePolicy} />
         </div>
 
-        <div className="card">
-          <label style={labelStyle}>
-            Lista de precios
-            <select value={priceListVersionId} onChange={(e) => setPriceListVersionId(e.target.value)}>
-              {priceListVersions.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.vigenciaLabel} — {new Date(v.uploadedAt).toLocaleString("es-AR")}
-                  {v.disabled ? " (deshabilitada)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
         <button type="button" className="btn-primary" onClick={submit} disabled={pending} style={{ width: "100%" }}>
           {pending ? "Calculando..." : "Cotizar"}
         </button>
