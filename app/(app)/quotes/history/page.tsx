@@ -1,6 +1,7 @@
 import { requireApprovedUser } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
 import { summarizeMiembros } from "@/lib/pricing/summary";
+import { formatVigencia } from "@/lib/pricing/vigencia";
 import QuoteDetailActions from "../QuoteDetailModal";
 import DiscountsCell from "../DiscountsCell";
 
@@ -16,7 +17,7 @@ export default async function HistoryPage({
   let query = supabase
     .from("quotes")
     .select(
-      "id, quote_number, created_at, vendedor_nombre, asociado_nombre, region_code, filial_code, categoria, vigencia, input, output, price_list_versions(uploaded_at)"
+      "id, quote_number, created_at, vendedor_nombre, asociado_nombre, region_code, filial_code, categoria, vigencia, input, output, price_list_versions(vigencia_anio, vigencia_mes)"
     )
     .eq("created_by", profile.id);
   if (numero) query = query.eq("quote_number", Number(numero));
@@ -64,42 +65,43 @@ export default async function HistoryPage({
                 </tr>
               </thead>
               <tbody>
-                {quotes.map((q: any) => (
-                  <tr key={q.id}>
-                    <td style={td}>{q.quote_number}</td>
-                    <td style={td}>{new Date(q.created_at).toLocaleString("es-AR")}</td>
-                    <td style={td}>{q.asociado_nombre}</td>
-                    <td style={td}>{q.region_code}</td>
-                    <td style={td}>{q.categoria === "Vol" ? "Voluntario" : "Obligatorio"}</td>
-                    <td style={td}>{summarizeMiembros(q.input?.miembros ?? [])}</td>
-                    <td style={td}>
-                      <DiscountsCell input={q.input} output={q.output} />
-                    </td>
-                    <td style={td}>
-                      {q.price_list_versions?.uploaded_at ? new Date(q.price_list_versions.uploaded_at).toLocaleString("es-AR") : "—"}
-                    </td>
-                    <td style={td}>
-                      <QuoteDetailActions
-                        quoteId={q.id}
-                        result={q.output}
-                        input={q.input}
-                        meta={{
-                          numero: q.quote_number,
-                          fecha: new Date(q.created_at).toLocaleString("es-AR"),
-                          vendedor: q.vendedor_nombre,
-                          asociado: q.asociado_nombre,
-                          region: q.region_code,
-                          categoria: q.categoria,
-                          filial: q.filial_code,
-                          vigencia: q.vigencia,
-                          listaPreciosFecha: q.price_list_versions?.uploaded_at
-                            ? new Date(q.price_list_versions.uploaded_at).toLocaleString("es-AR")
-                            : undefined,
-                        }}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                {quotes.map((q: any) => {
+                  const listaPreciosVigencia = q.price_list_versions
+                    ? formatVigencia({ anio: q.price_list_versions.vigencia_anio, mes: q.price_list_versions.vigencia_mes })
+                    : undefined;
+                  return (
+                    <tr key={q.id}>
+                      <td style={td}>{q.quote_number}</td>
+                      <td style={td}>{new Date(q.created_at).toLocaleString("es-AR")}</td>
+                      <td style={td}>{q.asociado_nombre}</td>
+                      <td style={td}>{q.region_code}</td>
+                      <td style={td}>{q.categoria === "Vol" ? "Voluntario" : "Obligatorio"}</td>
+                      <td style={td}>{summarizeMiembros(q.input?.miembros ?? [])}</td>
+                      <td style={td}>
+                        <DiscountsCell input={q.input} output={q.output} />
+                      </td>
+                      <td style={td}>{listaPreciosVigencia ?? "—"}</td>
+                      <td style={td}>
+                        <QuoteDetailActions
+                          quoteId={q.id}
+                          result={q.output}
+                          input={q.input}
+                          meta={{
+                            numero: q.quote_number,
+                            fecha: new Date(q.created_at).toLocaleString("es-AR"),
+                            vendedor: q.vendedor_nombre,
+                            asociado: q.asociado_nombre,
+                            region: q.region_code,
+                            categoria: q.categoria,
+                            filial: q.filial_code,
+                            vigencia: q.vigencia,
+                            listaPreciosVigencia,
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

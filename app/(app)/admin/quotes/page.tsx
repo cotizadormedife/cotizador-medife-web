@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireRole } from "@/lib/auth/session";
 import { listEmpresas, isMedife } from "@/lib/empresas";
 import { summarizeMiembros } from "@/lib/pricing/summary";
+import { formatVigencia } from "@/lib/pricing/vigencia";
 import QuoteDetailActions from "../../quotes/QuoteDetailModal";
 import DiscountsCell from "../../quotes/DiscountsCell";
 import FilterForm from "./FilterForm";
@@ -35,7 +36,7 @@ export default async function AdminQuotesPage({
   let query = supabase
     .from("quotes")
     .select(
-      "id, quote_number, created_at, asociado_nombre, vendedor_nombre, region_code, filial_code, categoria, vigencia, created_by, input, output, profiles!quotes_created_by_fkey(nombre, apellido, email, empresa_id, empresas(nombre)), price_list_versions(uploaded_at)"
+      "id, quote_number, created_at, asociado_nombre, vendedor_nombre, region_code, filial_code, categoria, vigencia, created_by, input, output, profiles!quotes_created_by_fkey(nombre, apellido, email, empresa_id, empresas(nombre)), price_list_versions(vigencia_anio, vigencia_mes)"
     );
 
   if (desde) query = query.gte("created_at", desde);
@@ -116,45 +117,46 @@ export default async function AdminQuotesPage({
               </tr>
             </thead>
             <tbody>
-              {(quotes ?? []).map((q: any) => (
-                <tr key={q.id}>
-                  <td style={td}>{q.quote_number}</td>
-                  <td style={td}>{new Date(q.created_at).toLocaleString("es-AR")}</td>
-                  <td style={td}>
-                    {q.profiles?.nombre} {q.profiles?.apellido} ({q.profiles?.empresas?.nombre ?? "—"}) ({q.profiles?.email})
-                  </td>
-                  <td style={td}>{q.asociado_nombre}</td>
-                  <td style={td}>{q.region_code}</td>
-                  <td style={td}>{q.categoria === "Vol" ? "Voluntario" : "Obligatorio"}</td>
-                  <td style={td}>{summarizeMiembros(q.input?.miembros ?? [])}</td>
-                  <td style={td}>
-                    <DiscountsCell input={q.input} output={q.output} />
-                  </td>
-                  <td style={td}>
-                    {q.price_list_versions?.uploaded_at ? new Date(q.price_list_versions.uploaded_at).toLocaleString("es-AR") : "—"}
-                  </td>
-                  <td style={td}>
-                    <QuoteDetailActions
-                      quoteId={q.id}
-                      result={q.output}
-                      input={q.input}
-                      meta={{
-                        numero: q.quote_number,
-                        fecha: new Date(q.created_at).toLocaleString("es-AR"),
-                        vendedor: q.vendedor_nombre,
-                        asociado: q.asociado_nombre,
-                        region: q.region_code,
-                        categoria: q.categoria,
-                        filial: q.filial_code,
-                        vigencia: q.vigencia,
-                        listaPreciosFecha: q.price_list_versions?.uploaded_at
-                          ? new Date(q.price_list_versions.uploaded_at).toLocaleString("es-AR")
-                          : undefined,
-                      }}
-                    />
-                  </td>
-                </tr>
-              ))}
+              {(quotes ?? []).map((q: any) => {
+                const listaPreciosVigencia = q.price_list_versions
+                  ? formatVigencia({ anio: q.price_list_versions.vigencia_anio, mes: q.price_list_versions.vigencia_mes })
+                  : undefined;
+                return (
+                  <tr key={q.id}>
+                    <td style={td}>{q.quote_number}</td>
+                    <td style={td}>{new Date(q.created_at).toLocaleString("es-AR")}</td>
+                    <td style={td}>
+                      {q.profiles?.nombre} {q.profiles?.apellido} ({q.profiles?.empresas?.nombre ?? "—"}) ({q.profiles?.email})
+                    </td>
+                    <td style={td}>{q.asociado_nombre}</td>
+                    <td style={td}>{q.region_code}</td>
+                    <td style={td}>{q.categoria === "Vol" ? "Voluntario" : "Obligatorio"}</td>
+                    <td style={td}>{summarizeMiembros(q.input?.miembros ?? [])}</td>
+                    <td style={td}>
+                      <DiscountsCell input={q.input} output={q.output} />
+                    </td>
+                    <td style={td}>{listaPreciosVigencia ?? "—"}</td>
+                    <td style={td}>
+                      <QuoteDetailActions
+                        quoteId={q.id}
+                        result={q.output}
+                        input={q.input}
+                        meta={{
+                          numero: q.quote_number,
+                          fecha: new Date(q.created_at).toLocaleString("es-AR"),
+                          vendedor: q.vendedor_nombre,
+                          asociado: q.asociado_nombre,
+                          region: q.region_code,
+                          categoria: q.categoria,
+                          filial: q.filial_code,
+                          vigencia: q.vigencia,
+                          listaPreciosVigencia,
+                        }}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

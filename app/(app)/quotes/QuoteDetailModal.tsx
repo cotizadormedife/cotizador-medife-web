@@ -24,7 +24,7 @@ export default function QuoteDetailActions({
     categoria: string;
     filial: string;
     vigencia?: string;
-    listaPreciosFecha?: string;
+    listaPreciosVigencia?: string;
   };
 }) {
   const [open, setOpen] = useState(false);
@@ -85,9 +85,9 @@ export default function QuoteDetailActions({
                 <p style={{ fontSize: 13, color: "var(--text-neutral)", margin: "4px 0 0" }}>
                   Grupo familiar: {summarizeMiembros(input?.miembros ?? [])}
                 </p>
-                {meta.listaPreciosFecha && (
+                {meta.listaPreciosVigencia && (
                   <p style={{ fontSize: 13, color: "var(--text-neutral)", margin: "4px 0 0" }}>
-                    Lista de precios: {meta.listaPreciosFecha}
+                    Lista de precios: {meta.listaPreciosVigencia}
                   </p>
                 )}
               </div>
