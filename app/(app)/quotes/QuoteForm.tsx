@@ -90,11 +90,16 @@ export default function QuoteForm({
     return RANGOS_BY_TIPO[tipo];
   }
 
-  // RF-63: no puede haber más de un Esposo/a a la vez — se saca esa opción
-  // del combo de los demás integrantes mientras ya haya uno cargado.
+  // RF-63: el Integrante 1 es siempre el único Titular — "Titular" se saca
+  // del combo de los demás integrantes. Tampoco puede haber más de un
+  // Esposo/a a la vez — se saca esa opción del combo de los demás mientras
+  // ya haya uno cargado.
   function tiposFor(idx: number): TipoMiembro[] {
+    let opts = TIPOS;
+    if (idx !== 0) opts = opts.filter((t) => t !== "Titular");
     const hayOtroEsposo = miembros.some((mm, i) => i !== idx && mm.tipo === "Esposo/a");
-    return hayOtroEsposo ? TIPOS.filter((t) => t !== "Esposo/a") : TIPOS;
+    if (hayOtroEsposo) opts = opts.filter((t) => t !== "Esposo/a");
+    return opts;
   }
 
   function addMiembro() {
