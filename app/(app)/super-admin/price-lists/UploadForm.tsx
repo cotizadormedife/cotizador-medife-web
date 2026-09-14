@@ -48,8 +48,11 @@ export default function UploadForm() {
           <div
             style={{
               boxSizing: "border-box",
-              width: 292,
-              padding: "13px 14px",
+              width: 584,
+              height: 44,
+              display: "flex",
+              alignItems: "center",
+              padding: "0 14px",
               border: "1px solid var(--border-default)",
               borderRadius: "var(--radius-input)",
               fontSize: 14,
@@ -76,26 +79,26 @@ export default function UploadForm() {
         </div>
 
         {fileName && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 1, fontSize: 10, lineHeight: 1.2, whiteSpace: "nowrap" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 3 }}>
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 44, fontSize: 12, whiteSpace: "nowrap" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <input
                 type="radio"
                 name="modo"
                 value="pisar"
                 checked={modo === "pisar"}
                 onChange={() => setModo("pisar")}
-                style={{ width: "auto", minHeight: 0, padding: 0, border: "none", margin: 0, accentColor: "var(--brand-orange)" }}
+                style={{ width: 16, height: 16, minHeight: 0, padding: 0, border: "none", margin: 0, accentColor: "var(--brand-orange)" }}
               />
               Pisar lista del mes actual
             </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <input
                 type="radio"
                 name="modo"
                 value="proximo"
                 checked={modo === "proximo"}
                 onChange={() => setModo("proximo")}
-                style={{ width: "auto", minHeight: 0, padding: 0, border: "none", margin: 0, accentColor: "var(--brand-orange)" }}
+                style={{ width: 16, height: 16, minHeight: 0, padding: 0, border: "none", margin: 0, accentColor: "var(--brand-orange)" }}
               />
               Lista del próximo mes
             </label>
