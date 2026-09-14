@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
 import { parsePriceList } from "@/lib/excel/parsePriceList";
 import { computeNextVigencia } from "@/lib/pricing/repository";
+import { formatVigencia } from "@/lib/pricing/vigencia";
 import { logAction } from "@/lib/auditLog";
 
 export type UploadState =
@@ -12,9 +13,68 @@ export type UploadState =
       ok: true;
       versionId: string;
       vigenciaLabel: string;
+      vigenteDeInmediato: boolean;
       report: { totalCells: number; warnings: string[]; errors: string[]; regionsParsed: string[] };
     }
   | { ok: false; error: string };
+
+// RF-66: al elegir "pisar la del mes actual" no se crea una versión nueva —
+// se reemplazan los precios de la que ya está activa, en una única
+// transacción (overwrite_active_price_list), y queda vigente de inmediato,
+// sin pasar por el paso de Activar.
+async function overwriteActivePriceList(
+  actorId: string,
+  file: File,
+  parsed: Awaited<ReturnType<typeof parsePriceList>>
+): Promise<UploadState> {
+  const supabase = createServiceClient();
+
+  const { data: active, error: activeErr } = await supabase
+    .from("price_list_versions")
+    .select("id, vigencia_anio, vigencia_mes")
+    .eq("status", "active")
+    .single();
+  if (activeErr || !active) {
+    return { ok: false, error: "No hay una lista de precios activa para pisar." };
+  }
+
+  const rows = parsed.prices.map((p) => ({
+    region_code: p.regionCode,
+    categoria: p.categoria,
+    age_bracket_code: p.ageBracketCode,
+    plan_code: p.planCode,
+    monto: p.monto,
+  }));
+
+  const { error: rpcErr } = await supabase.rpc("overwrite_active_price_list", {
+    p_version_id: active.id,
+    p_rows: rows,
+    p_source_filename: file.name,
+    p_parse_report: parsed.report,
+    p_actor_id: actorId,
+  });
+  if (rpcErr) {
+    return { ok: false, error: "No se pudieron reemplazar los precios: " + rpcErr.message };
+  }
+
+  await logAction({
+    actorId,
+    action: "price_list.overwrite_active",
+    targetType: "price_list_version",
+    targetId: active.id,
+    meta: parsed.report,
+  });
+
+  revalidatePath("/super-admin/price-lists");
+  revalidatePath("/quotes");
+  return {
+    ok: true,
+    versionId: active.id,
+    vigenciaLabel: formatVigencia({ anio: active.vigencia_anio, mes: active.vigencia_mes }),
+    vigenteDeInmediato: true,
+    report: parsed.report,
+  };
+}
 
 export async function uploadPriceListAction(formData: FormData): Promise<UploadState> {
   const actor = await requireRole(["super_admin"]);
@@ -25,6 +85,7 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
   if (!file.name.toLowerCase().endsWith(".xlsx")) {
     return { ok: false, error: "El archivo debe ser .xlsx." };
   }
+  const modo = formData.get("modo") === "pisar" ? "pisar" : "proximo";
 
   const buffer = await file.arrayBuffer();
   let parsed;
@@ -36,6 +97,10 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
 
   if (!parsed.report.ok || parsed.prices.length === 0) {
     return { ok: false, error: parsed.report.errors.join(" ") || "El archivo no pudo interpretarse." };
+  }
+
+  if (modo === "pisar") {
+    return overwriteActivePriceList(actor.id, file, parsed);
   }
 
   const supabase = createServiceClient();
@@ -80,7 +145,7 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
   await logAction({ actorId: actor.id, action: "price_list.upload", targetType: "price_list_version", targetId: version.id, meta: parsed.report });
 
   revalidatePath("/super-admin/price-lists");
-  return { ok: true, versionId: version.id, vigenciaLabel: vigencia.label, report: parsed.report };
+  return { ok: true, versionId: version.id, vigenciaLabel: vigencia.label, vigenteDeInmediato: false, report: parsed.report };
 }
 
 export type ToggleHabilitadaState = { ok: true } | { ok: false; error: string };

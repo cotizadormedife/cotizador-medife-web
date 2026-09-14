@@ -3,24 +3,62 @@
 import { useRef, useState, useTransition } from "react";
 import { uploadPriceListAction, type UploadState } from "./actions";
 
+type Modo = "pisar" | "proximo";
+
+// RF-66: texto que sigue a "...como lista de precios " en el popup de
+// reconfirmación, ya con la preposición correcta para cada modo.
+const CONFIRM_DESCRIPCION: Record<Modo, string> = {
+  pisar: "de este mes, pisando la actual",
+  proximo: "del próximo mes",
+};
+
 export default function UploadForm() {
   const [state, setState] = useState<UploadState | null>(null);
   const [pending, startTransition] = useTransition();
+  const [fileSelected, setFileSelected] = useState(false);
+  const [modo, setModo] = useState<Modo>("proximo");
   const fileRef = useRef<HTMLInputElement>(null);
 
   function submit(formData: FormData) {
+    const ok = confirm(`¿Confirmás que querés subir este archivo como lista de precios ${CONFIRM_DESCRIPCION[modo]}?`);
+    if (!ok) return;
+
     setState(null);
     startTransition(async () => {
       const res = await uploadPriceListAction(formData);
       setState(res);
-      if (res.ok && fileRef.current) fileRef.current.value = "";
+      if (res.ok) {
+        if (fileRef.current) fileRef.current.value = "";
+        setFileSelected(false);
+        setModo("proximo");
+      }
     });
   }
 
   return (
     <div>
       <form action={submit} style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <input ref={fileRef} type="file" name="file" accept=".xlsx" required style={{ flex: "1 1 260px" }} />
+        <input
+          ref={fileRef}
+          type="file"
+          name="file"
+          accept=".xlsx"
+          required
+          onChange={(e) => setFileSelected(e.target.files != null && e.target.files.length > 0)}
+          style={{ flex: fileSelected ? "1 1 182px" : "1 1 260px" }}
+        />
+        {fileSelected && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input type="radio" name="modo" value="pisar" checked={modo === "pisar"} onChange={() => setModo("pisar")} />
+              Pisar lista del mes actual
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input type="radio" name="modo" value="proximo" checked={modo === "proximo"} onChange={() => setModo("proximo")} />
+              Lista del próximo mes
+            </label>
+          </div>
+        )}
         <button type="submit" className="btn-primary" disabled={pending}>
           {pending ? "Procesando..." : "Subir y validar"}
         </button>
@@ -36,7 +74,16 @@ export default function UploadForm() {
         <div style={{ marginTop: 16, padding: 14, border: "1px solid var(--border-default)", borderRadius: 10, background: "var(--brand-orange-focus-bg)" }}>
           <p style={{ margin: "0 0 8px", fontSize: 14 }}>
             ✅ Se interpretaron <strong>{state.report.totalCells}</strong> celdas de precio, en las regiones:{" "}
-            {state.report.regionsParsed.join(", ")}. Vigencia asignada: <strong>{state.vigenciaLabel}</strong>.
+            {state.report.regionsParsed.join(", ")}.{" "}
+            {state.vigenteDeInmediato ? (
+              <>
+                Lista de precios actualizada: <strong>{state.vigenciaLabel}</strong>.
+              </>
+            ) : (
+              <>
+                Vigencia asignada: <strong>{state.vigenciaLabel}</strong>.
+              </>
+            )}
           </p>
           {state.report.warnings.length > 0 && (
             <div style={{ fontSize: 13 }}>
@@ -49,8 +96,9 @@ export default function UploadForm() {
             </div>
           )}
           <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--text-neutral)" }}>
-            Quedó guardada como borrador. Activala desde el historial de versiones cuando quieras que empiece
-            a usarse en las cotizaciones.
+            {state.vigenteDeInmediato
+              ? "Ya está pisando la lista activa — se usa en las cotizaciones nuevas de inmediato, sin pasar por Activar."
+              : "Quedó guardada como borrador. Activala desde el historial de versiones cuando quieras que empiece a usarse en las cotizaciones."}
           </p>
         </div>
       )}
