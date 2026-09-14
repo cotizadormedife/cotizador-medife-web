@@ -45,16 +45,30 @@ export default function UploadForm() {
           accept=".xlsx"
           required
           onChange={(e) => setFileSelected(e.target.files != null && e.target.files.length > 0)}
-          style={{ flex: fileSelected ? "1 1 182px" : "1 1 260px" }}
+          style={{ flex: fileSelected ? "0 1 146px" : "1 1 260px" }}
         />
         {fileSelected && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <input type="radio" name="modo" value="pisar" checked={modo === "pisar"} onChange={() => setModo("pisar")} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 1, fontSize: 10, lineHeight: 1.2, whiteSpace: "nowrap" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <input
+                type="radio"
+                name="modo"
+                value="pisar"
+                checked={modo === "pisar"}
+                onChange={() => setModo("pisar")}
+                style={{ width: "auto", minHeight: 0, padding: 0, border: "none", margin: 0, accentColor: "var(--brand-orange)" }}
+              />
               Pisar lista del mes actual
             </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <input type="radio" name="modo" value="proximo" checked={modo === "proximo"} onChange={() => setModo("proximo")} />
+            <label style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <input
+                type="radio"
+                name="modo"
+                value="proximo"
+                checked={modo === "proximo"}
+                onChange={() => setModo("proximo")}
+                style={{ width: "auto", minHeight: 0, padding: 0, border: "none", margin: 0, accentColor: "var(--brand-orange)" }}
+              />
               Lista del próximo mes
             </label>
           </div>
