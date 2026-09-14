@@ -208,13 +208,15 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
   }));
 
   // 11. Proyección de cuotas
-  const tieneRelacionGAF = gafPolicies.length > 0;
-  const projNonUccGaf = tieneRelacionGAF
-    ? data.policies.filter((p) => isPolicyRelevant(p, ctx) && p.procedenciaGate === "GAF" && !p.id.startsWith("ucc"))
-    : nonUccGafPolicies;
+  // Bug real: acá se recalculaba con TODAS las políticas GAF relevantes para
+  // el contexto (región/categoría/procedencia/filial), no solo las que el
+  // vendedor tildó — con una política "Nac" (nacional, siempre relevante en
+  // cualquier región) además de la seleccionada, el interés general de la
+  // proyección terminaba sumando un descuento GAF extra que el precio de
+  // "hoy" (nonUccGafPolicies, sección 9) correctamente no aplicaba.
   const gafInteresRate = PLANES.map((_, pi) => {
     let t = 0;
-    projNonUccGaf.forEach((p) => (t += planFactor(p, pi)));
+    nonUccGafPolicies.forEach((p) => (t += planFactor(p, pi)));
     return t;
   });
 

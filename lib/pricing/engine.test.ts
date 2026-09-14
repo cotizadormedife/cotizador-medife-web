@@ -234,6 +234,45 @@ describe("computeQuote", () => {
     // Con descuento comercial activo en algún plan, el GAF interés general no se aplica en NINGUNO
     expect(resultConComercial.planes[pi].gafInteresPct).toBe(0);
     expect(resultConComercial.planes[0].gafInteresPct).toBe(0); // ni siquiera en INDIE, donde Opción 1 no aplica
+
+    // En la proyección: el GAF vuelve a activarse solo una vez que Opción 1
+    // (7 meses) ya terminó, no antes.
+    const porMes = (m: number) => resultConComercial.proyeccionCuotas.find((c) => c.month === m)!;
+    expect(porMes(7).gafActivo).toBe(false);
+    expect(porMes(8).gafActivo).toBe(true);
+    expect(porMes(8).porPlan.PLATA).toBeCloseTo(AMBA_OBL_TITULAR_36_40[pi] * 0.85, 0);
+  });
+
+  it("la proyección del GAF interés general usa solo las políticas GAF tildadas, no todas las relevantes al contexto", () => {
+    const nacionalNoSeleccionada = policy({
+      id: "clientes-tributo-simple",
+      nombre: "CLIENTES TRIBUTO SIMPLE",
+      region: "Nac", // relevante en cualquier región, aunque no se tilde
+      procedenciaGate: "GAF",
+      valorPct: -0.1,
+      permanente: true,
+    });
+    const input: QuoteInput = {
+      region: "AMBA",
+      categoria: "Obl",
+      procedencia: "Otros",
+      filial: "CABA",
+      miembros: [{ tipo: "Titular", rango: "36-40" }],
+      selectedPolicyIds: ["prestadores-medife-amba"], // solo esta, no la nacional
+    };
+    const data = baseData(
+      [prestadoresAmbaPolicy, nacionalNoSeleccionada],
+      priceRows("36-40", AMBA_OBL_TITULAR_36_40)
+    );
+    const result = computeQuote(input, data);
+    const pi = 4;
+    const hoy = result.planes[pi].gafInteresPct;
+    const mes1 = result.proyeccionCuotas.find((c) => c.month === 1)!.porPlan.PLATA;
+    // El precio de "hoy" y el de la proyección tienen que coincidir: -15%
+    // (solo la seleccionada), nunca -25% (sumando también la no tildada).
+    expect(hoy).toBeCloseTo(-0.15, 4);
+    expect(mes1).toBeCloseTo(result.planes[pi].total, 0);
+    expect(mes1).toBeCloseTo(AMBA_OBL_TITULAR_36_40[pi] * 0.85, 0);
   });
 
   it("el descuento comercial combinado nunca supera el tope de -70%", () => {
