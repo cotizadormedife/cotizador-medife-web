@@ -262,6 +262,48 @@ describe("computeQuote", () => {
     expect(result.planes[4].descuentoComercialPct).toBe(-0.7);
   });
 
+  it("Opción 6 se suma a Opción 4 en simultáneo durante los mismos 12 meses (no concatenado después)", () => {
+    const opcion4 = policy({
+      id: "opcion-4-nac-Vol",
+      nombre: "Opción 4",
+      valorPct: -0.15,
+      plazoMeses: 12,
+      concatenable: false,
+    });
+    const opcion6 = policy({
+      id: "opcion-6-nac-Vol",
+      nombre: "Opción 6",
+      valorPct: -0.15,
+      plazoMeses: 12,
+      concatenable: false,
+    });
+    const input: QuoteInput = {
+      region: "AMBA",
+      categoria: "Vol",
+      procedencia: "comprobable",
+      filial: "CABA",
+      miembros: [{ tipo: "Titular", rango: "36-40" }],
+      selectedPolicyIds: ["opcion-4-nac-Vol", "opcion-6-nac-Vol"],
+    };
+    const precios = [237746, 178824, 210381, 247525, 306521, 430356, 559463];
+    const data = baseData([opcion4, opcion6], priceRows("36-40", precios));
+    const result = computeQuote(input, data);
+
+    // Precio "hoy" (tarjetas de plan): ambas políticas ya suman -30%.
+    expect(result.planes[4].descuentoComercialPct).toBeCloseTo(-0.3, 5);
+
+    // Proyección: -30% en todos los meses 1 a 12 (simultáneo, no uno detrás del otro)...
+    const mes1 = result.proyeccionCuotas.find((c) => c.month === 1)!;
+    const mes12 = result.proyeccionCuotas.find((c) => c.month === 12)!;
+    const sinDescuento = precios[4] * 1.105;
+    expect(mes1.porPlan.PLATA).toBeCloseTo(sinDescuento * 0.7, 0);
+    expect(mes12.porPlan.PLATA).toBeCloseTo(sinDescuento * 0.7, 0);
+
+    // ...y ninguna se extiende sola después del mes 12 (las dos ya terminaron).
+    const mes13 = result.proyeccionCuotas.find((c) => c.month === 13)!;
+    expect(mes13.porPlan.PLATA).toBeCloseTo(sinDescuento, 0);
+  });
+
   it("IVA 10.5% se aplica en Voluntario", () => {
     const input: QuoteInput = {
       region: "AMBA",
