@@ -60,7 +60,7 @@ export default function RegisterForm({ empresas }: { empresas: Empresa[] }) {
           <input type="tel" name="celular" required />
         </label>
         <label style={labelStyle}>
-          Empresa / Broker
+          Empresa / Equipo de Ventas / Broker
           <select name="empresa_id" required defaultValue={empresas[0]?.id ?? ""}>
             {empresas.map((e) => (
               <option key={e.id} value={e.id}>

@@ -103,7 +103,7 @@ export default async function AdminUsersPage({
                   <th style={th}>Nombre</th>
                   <th style={th}>Email</th>
                   <th style={th}>Celular</th>
-                  <th style={th}>Empresa</th>
+                  <th style={th}>Empresa / Equipo de Ventas / Broker</th>
                   <th style={th}>Acciones</th>
                 </tr>
               </thead>
@@ -147,7 +147,7 @@ export default async function AdminUsersPage({
           </label>
           {actor.role === "super_admin" && (
             <label style={{ ...labelStyle, minWidth: 200 }}>
-              Empresa
+              Empresa / Equipo de Ventas / Broker
               <select name="empresa" defaultValue={empresa ?? ""}>
                 <option value="">Todas</option>
                 {empresas.map((e) => (
@@ -168,7 +168,7 @@ export default async function AdminUsersPage({
               <tr>
                 <th style={th}>Nombre</th>
                 <th style={th}>Email</th>
-                <th style={th}>Empresa</th>
+                <th style={th}>Empresa / Equipo de Ventas / Broker</th>
                 <th style={th}>Rol</th>
                 <th style={th}>Estado</th>
                 <th style={th}>Acciones</th>

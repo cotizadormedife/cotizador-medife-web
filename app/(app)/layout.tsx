@@ -59,7 +59,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             )}
             {profile.role === "super_admin" && (
               <>
-                <NavLink href="/super-admin/empresas">Empresas</NavLink>
+                <NavLink href="/super-admin/empresas">Empresas / Equipo de Ventas / Broker</NavLink>
                 <NavLink href="/super-admin/price-lists">Precios</NavLink>
               </>
             )}

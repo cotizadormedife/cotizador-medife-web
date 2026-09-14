@@ -77,7 +77,7 @@ export default function FilterForm({
       </label>
       {!scoped && (
         <label style={{ ...labelStyle, minWidth: 200 }}>
-          Empresa
+          Empresa / Equipo de Ventas / Broker
           <select name="empresa" value={empresaSel} onChange={(e) => onEmpresaChange(e.target.value)}>
             <option value="">Todas</option>
             {empresas.map((e) => (

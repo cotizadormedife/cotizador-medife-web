@@ -88,7 +88,7 @@ export default function EditProfileModal({
                   <input type="text" name="celular" required defaultValue={profile.celular ?? ""} />
                 </label>
                 <label style={labelStyle}>
-                  Empresa / Broker
+                  Empresa / Equipo de Ventas / Broker
                   {profile.role === "vendedor" ? (
                     <select name="empresa_id" defaultValue={profile.empresa_id ?? ""}>
                       {empresas.map((emp) => (

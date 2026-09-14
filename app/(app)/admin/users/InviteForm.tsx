@@ -65,7 +65,7 @@ export default function InviteForm({ empresas, lockedEmpresa }: { empresas: Empr
           <input value={celular} onChange={(e) => setCelular(e.target.value)} />
         </label>
         <label style={{ ...labelStyle, flex: "1 1 200px" }}>
-          Empresa / Broker
+          Empresa / Equipo de Ventas / Broker
           {lockedEmpresa ? (
             <input value={lockedEmpresa.nombre} disabled />
           ) : (

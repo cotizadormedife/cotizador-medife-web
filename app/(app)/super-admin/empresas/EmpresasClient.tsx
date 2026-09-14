@@ -30,7 +30,7 @@ export default function EmpresasClient({ empresas }: { empresas: Empresa[] }) {
   return (
     <div>
       <div className="card">
-        <h2 style={{ fontSize: 18, margin: "0 0 6px" }}>Nueva empresa / broker</h2>
+        <h2 style={{ fontSize: 18, margin: "0 0 6px" }}>Nueva Empresa / Equipo de Ventas / Broker</h2>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
           <label style={{ ...labelStyle, flex: "1 1 220px" }}>
             Nombre
@@ -52,7 +52,7 @@ export default function EmpresasClient({ empresas }: { empresas: Empresa[] }) {
       </div>
 
       <div className="card">
-        <h2 style={{ fontSize: 18, margin: "0 0 14px" }}>Empresas / brokers</h2>
+        <h2 style={{ fontSize: 18, margin: "0 0 14px" }}>Empresas / Equipos de Ventas / Brokers</h2>
         <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
