@@ -26,23 +26,22 @@ export async function loginAction(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
 
-  if (error) {
-    if (error.code === "email_not_confirmed") {
+  // El usuario ya viene en la respuesta del propio signIn — evita un
+  // getUser() extra (una llamada de red más que puede fallar por las suyas,
+  // como pasó el 14/09: quedó sin manejar y tiraba la página abajo).
+  if (error || !signInData.user) {
+    if (error?.code === "email_not_confirmed") {
       return { error: "Todavía no confirmaste tu email — revisá tu casilla de entrada." };
     }
     return { error: "Email o contraseña incorrectos." };
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const { data: profile } = await supabase
     .from("profiles")
     .select("status")
-    .eq("id", user!.id)
+    .eq("id", signInData.user.id)
     .single();
 
   if (profile?.status === "approved") {
