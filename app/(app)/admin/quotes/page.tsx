@@ -36,7 +36,7 @@ export default async function AdminQuotesPage({
   let query = supabase
     .from("quotes")
     .select(
-      "id, quote_number, created_at, asociado_nombre, vendedor_nombre, region_code, filial_code, categoria, vigencia, created_by, input, output, profiles!quotes_created_by_fkey(nombre, apellido, email, empresa_id, empresas(nombre)), price_list_versions(vigencia_anio, vigencia_mes)"
+      "id, quote_number, created_at, asociado_nombre, vendedor_nombre, region_code, filial_code, categoria, vigencia, created_by, input, output, profiles!quotes_created_by_fkey(nombre, apellido, email, empresa_id, empresas(nombre)), price_list_versions(vigencia_anio, vigencia_mes, version_num)"
     );
 
   if (desde) query = query.gte("created_at", desde);
@@ -119,7 +119,10 @@ export default async function AdminQuotesPage({
             <tbody>
               {(quotes ?? []).map((q: any) => {
                 const listaPreciosVigencia = q.price_list_versions
-                  ? formatVigencia({ anio: q.price_list_versions.vigencia_anio, mes: q.price_list_versions.vigencia_mes })
+                  ? formatVigencia(
+                      { anio: q.price_list_versions.vigencia_anio, mes: q.price_list_versions.vigencia_mes },
+                      q.price_list_versions.version_num
+                    )
                   : undefined;
                 return (
                   <tr key={q.id}>

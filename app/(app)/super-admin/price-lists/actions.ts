@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
 import { parsePriceList } from "@/lib/excel/parsePriceList";
-import { computeNextVigencia } from "@/lib/pricing/repository";
+import { resolveUploadTarget } from "@/lib/pricing/repository";
 import { formatVigencia } from "@/lib/pricing/vigencia";
 import { logAction } from "@/lib/auditLog";
 
@@ -17,64 +17,6 @@ export type UploadState =
       report: { totalCells: number; warnings: string[]; errors: string[]; regionsParsed: string[] };
     }
   | { ok: false; error: string };
-
-// RF-66: al elegir "pisar la del mes actual" no se crea una versión nueva —
-// se reemplazan los precios de la que ya está activa, en una única
-// transacción (overwrite_active_price_list), y queda vigente de inmediato,
-// sin pasar por el paso de Activar.
-async function overwriteActivePriceList(
-  actorId: string,
-  file: File,
-  parsed: Awaited<ReturnType<typeof parsePriceList>>
-): Promise<UploadState> {
-  const supabase = createServiceClient();
-
-  const { data: active, error: activeErr } = await supabase
-    .from("price_list_versions")
-    .select("id, vigencia_anio, vigencia_mes")
-    .eq("status", "active")
-    .single();
-  if (activeErr || !active) {
-    return { ok: false, error: "No hay una lista de precios activa para pisar." };
-  }
-
-  const rows = parsed.prices.map((p) => ({
-    region_code: p.regionCode,
-    categoria: p.categoria,
-    age_bracket_code: p.ageBracketCode,
-    plan_code: p.planCode,
-    monto: p.monto,
-  }));
-
-  const { error: rpcErr } = await supabase.rpc("overwrite_active_price_list", {
-    p_version_id: active.id,
-    p_rows: rows,
-    p_source_filename: file.name,
-    p_parse_report: parsed.report,
-    p_actor_id: actorId,
-  });
-  if (rpcErr) {
-    return { ok: false, error: "No se pudieron reemplazar los precios: " + rpcErr.message };
-  }
-
-  await logAction({
-    actorId,
-    action: "price_list.overwrite_active",
-    targetType: "price_list_version",
-    targetId: active.id,
-    meta: parsed.report,
-  });
-
-  revalidatePath("/super-admin/price-lists");
-  revalidatePath("/quotes");
-  return {
-    ok: true,
-    versionId: active.id,
-    vigenciaLabel: formatVigencia({ anio: active.vigencia_anio, mes: active.vigencia_mes }),
-    vigenteDeInmediato: true,
-    report: parsed.report,
-  };
-}
 
 export async function uploadPriceListAction(formData: FormData): Promise<UploadState> {
   const actor = await requireRole(["super_admin"]);
@@ -99,35 +41,22 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     return { ok: false, error: parsed.report.errors.join(" ") || "El archivo no pudo interpretarse." };
   }
 
-  if (modo === "pisar") {
-    return overwriteActivePriceList(actor.id, file, parsed);
-  }
-
   const supabase = createServiceClient();
 
-  // RF-64: la vigencia se asigna sola, siempre correlativa a la más nueva ya
-  // cargada — nunca se elige a mano.
-  const vigencia = await computeNextVigencia();
-
-  const { data: version, error: versionErr } = await supabase
-    .from("price_list_versions")
-    .insert({
-      source_filename: file.name,
-      status: "draft",
-      uploaded_by: actor.id,
-      parse_report: parsed.report,
-      vigencia_anio: vigencia.anio,
-      vigencia_mes: vigencia.mes,
-    })
-    .select("id")
-    .single();
-
-  if (versionErr || !version) {
-    return { ok: false, error: "No se pudo crear la versión: " + (versionErr?.message ?? "") };
+  // RF-66/RF-67: "pisar" siempre apunta a la vigencia de la activa actual (y
+  // por lo tanto la sobrescribe); "próximo mes" apunta al mes siguiente al de
+  // la activa y, si ya existe una versión con esa vigencia, también la
+  // sobrescribe (con confirmación aparte del lado del cliente) en vez de
+  // fallar por vigencia duplicada. Las dos quedan utilizables de inmediato —
+  // ya no hace falta un paso aparte de "Activar".
+  let target;
+  try {
+    target = await resolveUploadTarget(modo);
+  } catch (e: any) {
+    return { ok: false, error: e.message ?? "No se pudo determinar la vigencia de destino." };
   }
 
   const rows = parsed.prices.map((p) => ({
-    price_list_version_id: version.id,
     region_code: p.regionCode,
     categoria: p.categoria,
     age_bracket_code: p.ageBracketCode,
@@ -135,7 +64,58 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     monto: p.monto,
   }));
 
-  const { error: pricesErr } = await supabase.from("prices").insert(rows);
+  if (target.existingId) {
+    const { error: rpcErr } = await supabase.rpc("overwrite_active_price_list", {
+      p_version_id: target.existingId,
+      p_rows: rows,
+      p_source_filename: file.name,
+      p_parse_report: parsed.report,
+      p_actor_id: actor.id,
+    });
+    if (rpcErr) {
+      return { ok: false, error: "No se pudieron reemplazar los precios: " + rpcErr.message };
+    }
+
+    await logAction({
+      actorId: actor.id,
+      action: modo === "pisar" ? "price_list.overwrite_active" : "price_list.overwrite_proximo",
+      targetType: "price_list_version",
+      targetId: target.existingId,
+      meta: parsed.report,
+    });
+
+    revalidatePath("/super-admin/price-lists");
+    revalidatePath("/quotes");
+    return {
+      ok: true,
+      versionId: target.existingId,
+      vigenciaLabel: formatVigencia(target.vigencia, (target.existingVersionNum ?? 1) + 1),
+      vigenteDeInmediato: modo === "pisar",
+      report: parsed.report,
+    };
+  }
+
+  // Sin versión previa para esa vigencia (siempre "próximo mes", la primera
+  // vez): se crea nueva, Ver.1.
+  const { data: version, error: versionErr } = await supabase
+    .from("price_list_versions")
+    .insert({
+      source_filename: file.name,
+      status: "draft",
+      uploaded_by: actor.id,
+      parse_report: parsed.report,
+      vigencia_anio: target.vigencia.anio,
+      vigencia_mes: target.vigencia.mes,
+    })
+    .select("id, version_num")
+    .single();
+
+  if (versionErr || !version) {
+    return { ok: false, error: "No se pudo crear la versión: " + (versionErr?.message ?? "") };
+  }
+
+  const priceRows = rows.map((r) => ({ ...r, price_list_version_id: version.id }));
+  const { error: pricesErr } = await supabase.from("prices").insert(priceRows);
   if (pricesErr) {
     // limpiar la versión huérfana si falló la inserción de precios
     await supabase.from("price_list_versions").delete().eq("id", version.id);
@@ -145,68 +125,13 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
   await logAction({ actorId: actor.id, action: "price_list.upload", targetType: "price_list_version", targetId: version.id, meta: parsed.report });
 
   revalidatePath("/super-admin/price-lists");
-  return { ok: true, versionId: version.id, vigenciaLabel: vigencia.label, vigenteDeInmediato: false, report: parsed.report };
-}
-
-export type ToggleHabilitadaState = { ok: true } | { ok: false; error: string };
-
-// RF-44 / RF-45: habilitar o deshabilitar una versión para que el cotizador
-// pueda (o no) ofrecerla en su combo. Nunca puede quedar el sistema sin
-// ninguna lista habilitada disponible para cotizar.
-export async function toggleHabilitadaAction(versionId: string, habilitar: boolean): Promise<ToggleHabilitadaState> {
-  const actor = await requireRole(["super_admin"]);
-  const supabase = createServiceClient();
-
-  if (!habilitar) {
-    const { count, error: countErr } = await supabase
-      .from("price_list_versions")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["active", "archived"])
-      .eq("habilitada", true)
-      .neq("id", versionId);
-    if (countErr) return { ok: false, error: countErr.message };
-    if (!count) {
-      return {
-        ok: false,
-        error: "No se puede deshabilitar: no podemos quedarnos sin ninguna lista de precios vigente disponible para cotizar.",
-      };
-    }
-  }
-
-  const { error } = await supabase.from("price_list_versions").update({ habilitada: habilitar }).eq("id", versionId);
-  if (error) return { ok: false, error: error.message };
-
-  await logAction({
-    actorId: actor.id,
-    action: habilitar ? "price_list.enable" : "price_list.disable",
-    targetType: "price_list_version",
-    targetId: versionId,
-  });
-
-  revalidatePath("/super-admin/price-lists");
   revalidatePath("/quotes");
-  return { ok: true };
+  return {
+    ok: true,
+    versionId: version.id,
+    vigenciaLabel: formatVigencia(target.vigencia, version.version_num),
+    vigenteDeInmediato: false,
+    report: parsed.report,
+  };
 }
 
-export async function activatePriceListAction(versionId: string) {
-  const actor = await requireRole(["super_admin"]);
-  const supabase = createServiceClient();
-
-  // Archivar la versión activa actual (si existe) antes de activar la nueva —
-  // el índice único parcial exige que nunca haya dos con status='active'.
-  await supabase.from("price_list_versions").update({ status: "archived" }).eq("status", "active");
-
-  const { error } = await supabase
-    .from("price_list_versions")
-    .update({ status: "active", activated_by: actor.id, activated_at: new Date().toISOString() })
-    .eq("id", versionId);
-
-  if (error) {
-    return { ok: false, error: error.message };
-  }
-
-  await logAction({ actorId: actor.id, action: "price_list.activate", targetType: "price_list_version", targetId: versionId });
-
-  revalidatePath("/super-admin/price-lists");
-  return { ok: true };
-}

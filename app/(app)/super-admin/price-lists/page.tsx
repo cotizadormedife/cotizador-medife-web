@@ -1,49 +1,84 @@
 import { createServiceClient } from "@/lib/supabase/service";
-import { computeNextVigencia } from "@/lib/pricing/repository";
-import { formatVigencia } from "@/lib/pricing/vigencia";
+import { resolveUploadTarget } from "@/lib/pricing/repository";
+import { formatVigencia, vigenciaDeHoy, nextVigencia } from "@/lib/pricing/vigencia";
 import UploadForm from "./UploadForm";
-import ActivateButton from "./ActivateButton";
-import ToggleHabilitadaButton from "./ToggleHabilitadaButton";
 
 export default async function PriceListsPage() {
   const supabase = createServiceClient();
-  const [{ data: versionsData }, nextVigencia] = await Promise.all([
+  const [{ data: versionsData }, proximoTarget] = await Promise.all([
     supabase
       .from("price_list_versions")
-      .select("id, source_filename, status, habilitada, vigencia_anio, vigencia_mes, uploaded_at, activated_at, parse_report, uploader:profiles!price_list_versions_uploaded_by_fkey(nombre, apellido), activator:profiles!price_list_versions_activated_by_fkey(nombre, apellido)")
+      .select("id, source_filename, vigencia_anio, vigencia_mes, version_num, uploaded_at, activated_at, parse_report, uploader:profiles!price_list_versions_uploaded_by_fkey(nombre, apellido)")
       .order("uploaded_at", { ascending: false }),
-    computeNextVigencia(),
+    resolveUploadTarget("proximo").catch(() => null),
   ]);
   const versions = (versionsData ?? []) as any[];
 
-  const active = versions.find((v: any) => v.status === "active");
+  const hoy = vigenciaDeHoy();
+  const mesSiguiente = nextVigencia(hoy);
+
+  // RF-68: "Activa" es un valor puramente calculado a partir de la vigencia
+  // (mes actual o mes siguiente) — no hay ningún flag guardado ni forma
+  // manual de cambiarlo desde la pantalla.
+  function esActiva(v: any): boolean {
+    const vig = { anio: v.vigencia_anio, mes: v.vigencia_mes };
+    return (vig.anio === hoy.anio && vig.mes === hoy.mes) || (vig.anio === mesSiguiente.anio && vig.mes === mesSiguiente.mes);
+  }
+
+  const actual = versions.find((v: any) => v.vigencia_anio === hoy.anio && v.vigencia_mes === hoy.mes);
+
+  const versionesOrdenadas = [...versions].sort((a, b) => {
+    const aActiva = esActiva(a);
+    const bActiva = esActiva(b);
+    if (aActiva !== bActiva) return aActiva ? -1 : 1;
+    return new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime();
+  });
+
+  const existingProximoLabel = proximoTarget?.existingId
+    ? formatVigencia(proximoTarget.vigencia, proximoTarget.existingVersionNum ?? 1)
+    : null;
 
   return (
     <div>
       <h1 style={{ fontSize: 22, margin: "0 0 16px" }}>Precios y descuentos</h1>
 
       <div className="card">
-        <h2 style={{ fontSize: 16, margin: "0 0 10px" }}>Versión activa</h2>
-        {active ? (
+        <h2 style={{ fontSize: 16, margin: "0 0 10px" }}>Versión vigente (mes actual)</h2>
+        {actual ? (
           <p style={{ fontSize: 14, color: "var(--text-neutral)", margin: 0 }}>
-            <strong>{formatVigencia({ anio: active.vigencia_anio, mes: active.vigencia_mes })}</strong> (
-            {active.source_filename}) — activada el{" "}
-            {active.activated_at ? new Date(active.activated_at).toLocaleString("es-AR") : "—"}
-            {active.activator ? ` por ${active.activator.nombre} ${active.activator.apellido}` : ""}
+            <strong>{formatVigencia({ anio: actual.vigencia_anio, mes: actual.vigencia_mes }, actual.version_num)}</strong> (
+            {actual.source_filename}) — última carga el{" "}
+            {new Date(actual.uploaded_at).toLocaleString("es-AR")}
+            {actual.uploader ? ` por ${actual.uploader.nombre} ${actual.uploader.apellido}` : ""}
           </p>
         ) : (
-          <p style={{ fontSize: 14, color: "var(--text-neutral)", margin: 0 }}>No hay ninguna versión activa.</p>
+          <p style={{ fontSize: 14, color: "var(--text-neutral)", margin: 0 }}>Todavía no se cargó ninguna lista para el mes actual.</p>
         )}
       </div>
 
       <div className="card">
         <h2 style={{ fontSize: 16, margin: "0 0 10px" }}>Cargar nueva lista de precios</h2>
         <p style={{ fontSize: 13, color: "var(--text-neutral)", margin: "0 0 16px" }}>
-          Subí el archivo .xlsx con la hoja "Resumen LP". Se valida e interpreta antes de activarla — la
-          carga queda en borrador hasta que la actives explícitamente. La próxima que subas quedará con
-          vigencia <strong>{formatVigencia(nextVigencia)}</strong>, asignada automáticamente.
+          Subí el archivo .xlsx con la hoja "Resumen LP". Se valida e interpreta, y queda utilizable de inmediato
+          — no hace falta ningún paso aparte de activación. "Pisar lista del mes actual" reemplaza los precios de{" "}
+          {actual ? (
+            <strong>{formatVigencia({ anio: actual.vigencia_anio, mes: actual.vigencia_mes }, actual.version_num)}</strong>
+          ) : (
+            "el mes actual"
+          )}{" "}
+          ahora mismo. "Lista del próximo mes"{" "}
+          {existingProximoLabel ? (
+            <>
+              reemplaza la que ya está cargada (<strong>{existingProximoLabel}</strong>)
+            </>
+          ) : (
+            <>
+              carga por primera vez <strong>{proximoTarget ? formatVigencia(proximoTarget.vigencia, 1) : "el mes siguiente"}</strong>
+            </>
+          )}
+          .
         </p>
-        <UploadForm />
+        <UploadForm existingProximoLabel={existingProximoLabel} />
       </div>
 
       <div className="card">
@@ -55,23 +90,20 @@ export default async function PriceListsPage() {
                 <th style={th}>Vigencia</th>
                 <th style={th}>Archivo</th>
                 <th style={th}>Estado</th>
-                <th style={th}>Habilitada</th>
                 <th style={th}>Subida</th>
                 <th style={th}>Activada</th>
                 <th style={th}>Celdas</th>
                 <th style={th}>Avisos</th>
-                <th style={th}>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {(versions ?? []).map((v: any) => (
+              {versionesOrdenadas.map((v: any) => (
                 <tr key={v.id}>
                   <td style={td}>
-                    <strong>{formatVigencia({ anio: v.vigencia_anio, mes: v.vigencia_mes })}</strong>
+                    <strong>{formatVigencia({ anio: v.vigencia_anio, mes: v.vigencia_mes }, v.version_num)}</strong>
                   </td>
                   <td style={td}>{v.source_filename}</td>
-                  <td style={td}>{v.status}</td>
-                  <td style={td}>{v.status === "draft" ? "—" : v.habilitada ? "Sí" : "No"}</td>
+                  <td style={td}>{esActiva(v) ? "Activa" : "Inactiva"}</td>
                   <td style={td}>
                     {new Date(v.uploaded_at).toLocaleString("es-AR")}
                     {v.uploader ? ` · ${v.uploader.nombre} ${v.uploader.apellido}` : ""}
@@ -79,10 +111,6 @@ export default async function PriceListsPage() {
                   <td style={td}>{v.activated_at ? new Date(v.activated_at).toLocaleString("es-AR") : "—"}</td>
                   <td style={td}>{v.parse_report?.totalCells ?? "—"}</td>
                   <td style={td}>{v.parse_report?.warnings?.length ?? 0}</td>
-                  <td style={td}>
-                    {v.status === "draft" && <ActivateButton versionId={v.id} />}
-                    {v.status !== "draft" && <ToggleHabilitadaButton versionId={v.id} habilitada={v.habilitada} />}
-                  </td>
                 </tr>
               ))}
             </tbody>

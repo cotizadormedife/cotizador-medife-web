@@ -7,6 +7,11 @@ describe("vigencia", () => {
     expect(formatVigencia({ anio: 2026, mes: 1 })).toBe("Enero 2026");
   });
 
+  it("agrega el número de versión cuando se pasa (RF-67)", () => {
+    expect(formatVigencia({ anio: 2026, mes: 9 }, 1)).toBe("Septiembre 2026 Ver.1");
+    expect(formatVigencia({ anio: 2026, mes: 9 }, 2)).toBe("Septiembre 2026 Ver.2");
+  });
+
   it("avanza al mes siguiente", () => {
     expect(nextVigencia({ anio: 2026, mes: 9 })).toEqual({ anio: 2026, mes: 10 });
   });

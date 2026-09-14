@@ -17,7 +17,7 @@ export default async function HistoryPage({
   let query = supabase
     .from("quotes")
     .select(
-      "id, quote_number, created_at, vendedor_nombre, asociado_nombre, region_code, filial_code, categoria, vigencia, input, output, price_list_versions(vigencia_anio, vigencia_mes)"
+      "id, quote_number, created_at, vendedor_nombre, asociado_nombre, region_code, filial_code, categoria, vigencia, input, output, price_list_versions(vigencia_anio, vigencia_mes, version_num)"
     )
     .eq("created_by", profile.id);
   if (numero) query = query.eq("quote_number", Number(numero));
@@ -67,7 +67,10 @@ export default async function HistoryPage({
               <tbody>
                 {quotes.map((q: any) => {
                   const listaPreciosVigencia = q.price_list_versions
-                    ? formatVigencia({ anio: q.price_list_versions.vigencia_anio, mes: q.price_list_versions.vigencia_mes })
+                    ? formatVigencia(
+                        { anio: q.price_list_versions.vigencia_anio, mes: q.price_list_versions.vigencia_mes },
+                        q.price_list_versions.version_num
+                      )
                     : undefined;
                   return (
                     <tr key={q.id}>

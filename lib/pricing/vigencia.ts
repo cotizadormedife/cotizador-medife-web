@@ -5,8 +5,12 @@ const MESES = [
 
 export type Vigencia = { anio: number; mes: number };
 
-export function formatVigencia(v: Vigencia): string {
-  return `${MESES[v.mes - 1]} ${v.anio}`;
+// RF-67: "Septiembre 2026 Ver.2" — versionNum se omite solo cuando todavía
+// no hay una versión real asociada (ej. el texto de vista previa antes de
+// cargar un archivo).
+export function formatVigencia(v: Vigencia, versionNum?: number): string {
+  const base = `${MESES[v.mes - 1]} ${v.anio}`;
+  return versionNum != null ? `${base} Ver.${versionNum}` : base;
 }
 
 export function nextVigencia(v: Vigencia): Vigencia {

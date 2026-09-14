@@ -2,30 +2,33 @@ import { createServiceClient } from "@/lib/supabase/service";
 import type { Categoria, DiscountPolicy, PricingData } from "./types";
 import { compareVigencia, formatVigencia, nextVigencia, vigenciaDeHoy } from "./vigencia";
 
-// RF-41: por default se usa la lista activa, pero se puede pedir una
-// versión puntual (una que llegó a estar activa alguna vez) para cotizar
-// contra una lista de precios distinta a la vigente.
+// RF-68: por default se usa la lista de la vigencia de hoy (o, si todavía no
+// se cargó ninguna para el mes actual, la más reciente anterior); también se
+// puede pedir una versión puntual para cotizar contra una lista distinta.
+// Ya no depende de la columna `status` — esa columna quedó vestigial (ver
+// nota en resolveUploadTarget).
 export async function loadPricingData(region: string, categoria: Categoria, priceListVersionId?: string): Promise<PricingData> {
   const supabase = createServiceClient();
 
   let versionId = priceListVersionId;
   if (!versionId) {
-    const { data: version, error: versionErr } = await supabase
+    const { data: rows } = await supabase
       .from("price_list_versions")
-      .select("id")
-      .eq("status", "active")
-      .single();
-    if (versionErr || !version) throw new Error("No hay una lista de precios activa.");
-    versionId = version.id;
+      .select("id, vigencia_anio, vigencia_mes")
+      .order("vigencia_anio", { ascending: false })
+      .order("vigencia_mes", { ascending: false });
+    const versiones = rows ?? [];
+    const hoy = vigenciaDeHoy();
+    const match = versiones.find((v) => v.vigencia_anio === hoy.anio && v.vigencia_mes === hoy.mes);
+    const fallback = versiones.find((v) => compareVigencia({ anio: v.vigencia_anio, mes: v.vigencia_mes }, hoy) <= 0);
+    const chosen = match ?? fallback ?? null;
+    if (!chosen) throw new Error("No hay ninguna lista de precios cargada.");
+    versionId = chosen.id;
   } else {
-    // RF-65: "mes siguiente" puede señalar a una versión todavía en borrador
-    // (no activada) — por eso "draft" también es válido acá, a diferencia del
-    // combo general (listSelectablePriceListVersions), que sigue sin mostrarlas.
     const { data: version, error: versionErr } = await supabase
       .from("price_list_versions")
       .select("id")
       .eq("id", versionId)
-      .in("status", ["active", "archived", "draft"])
       .single();
     if (versionErr || !version) throw new Error("La lista de precios elegida no es válida.");
   }
@@ -102,23 +105,21 @@ export type SelectablePriceListVersion = {
   disabled?: boolean;
 };
 
-// RF-41 / RF-44: versiones seleccionables en el combo del cotizador — las que
-// llegaron a estar activas (activa actual + archivadas) y están habilitadas
-// (no los borradores sin revisar, ni las deshabilitadas). De la más nueva a
-// la más vieja.
+// RF-44: versiones seleccionables en el combo del cotizador — todas las
+// habilitadas, sin importar su vigencia (para poder re-cotizar contra
+// cualquier lista que haya existido). De la más nueva a la más vieja.
 export async function listSelectablePriceListVersions(): Promise<SelectablePriceListVersion[]> {
   const supabase = createServiceClient();
   const { data } = await supabase
     .from("price_list_versions")
-    .select("id, source_filename, uploaded_at, vigencia_anio, vigencia_mes")
-    .in("status", ["active", "archived"])
+    .select("id, source_filename, uploaded_at, vigencia_anio, vigencia_mes, version_num")
     .eq("habilitada", true)
     .order("uploaded_at", { ascending: false });
   return (data ?? []).map((v) => ({
     id: v.id,
     sourceFilename: v.source_filename ?? "(sin nombre)",
     uploadedAt: v.uploaded_at,
-    vigenciaLabel: formatVigencia({ anio: v.vigencia_anio, mes: v.vigencia_mes }),
+    vigenciaLabel: formatVigencia({ anio: v.vigencia_anio, mes: v.vigencia_mes }, v.version_num),
   }));
 }
 
@@ -129,7 +130,7 @@ export async function getPriceListVersionInfo(id: string): Promise<SelectablePri
   const supabase = createServiceClient();
   const { data } = await supabase
     .from("price_list_versions")
-    .select("id, source_filename, uploaded_at, vigencia_anio, vigencia_mes")
+    .select("id, source_filename, uploaded_at, vigencia_anio, vigencia_mes, version_num")
     .eq("id", id)
     .single();
   if (!data) return null;
@@ -137,7 +138,7 @@ export async function getPriceListVersionInfo(id: string): Promise<SelectablePri
     id: data.id,
     sourceFilename: data.source_filename ?? "(sin nombre)",
     uploadedAt: data.uploaded_at,
-    vigenciaLabel: formatVigencia({ anio: data.vigencia_anio, mes: data.vigencia_mes }),
+    vigenciaLabel: formatVigencia({ anio: data.vigencia_anio, mes: data.vigencia_mes }, data.version_num),
   };
 }
 
@@ -156,7 +157,7 @@ export async function getVigenciaSelection(): Promise<VigenciaSelection> {
   const supabase = createServiceClient();
   const { data } = await supabase
     .from("price_list_versions")
-    .select("id, vigencia_anio, vigencia_mes")
+    .select("id, vigencia_anio, vigencia_mes, version_num")
     .eq("habilitada", true)
     .order("vigencia_anio", { ascending: false })
     .order("vigencia_mes", { ascending: false });
@@ -175,30 +176,43 @@ export async function getVigenciaSelection(): Promise<VigenciaSelection> {
 
   return {
     actual: actualRow
-      ? { id: actualRow.id, label: formatVigencia({ anio: actualRow.vigencia_anio, mes: actualRow.vigencia_mes }) }
+      ? { id: actualRow.id, label: formatVigencia({ anio: actualRow.vigencia_anio, mes: actualRow.vigencia_mes }, actualRow.version_num) }
       : null,
     actualEsFallback: !matchHoy && !!actualRow,
     siguiente: matchSiguiente
-      ? { id: matchSiguiente.id, label: formatVigencia({ anio: matchSiguiente.vigencia_anio, mes: matchSiguiente.vigencia_mes }) }
+      ? { id: matchSiguiente.id, label: formatVigencia({ anio: matchSiguiente.vigencia_anio, mes: matchSiguiente.vigencia_mes }, matchSiguiente.version_num) }
       : null,
   };
 }
 
-// RF-64: la próxima versión a cargar siempre es correlativa a la vigencia más
-// nueva que ya exista (sin importar su estado) — usado por uploadPriceListAction.
-export async function computeNextVigencia(): Promise<{ anio: number; mes: number; label: string }> {
+// RF-68: a qué versión apunta una carga según el modo elegido — "pisar"
+// apunta siempre a la vigencia del mes calendario de HOY (vigenciaDeHoy());
+// "proximo" apunta al mes calendario siguiente. Antes esto se resolvía a
+// partir de la fila con status='active' en la base, pero esa columna es
+// mutable y quedó vestigial — eso causó que se creara una vigencia de más
+// (Noviembre 2026) por un valor de status desactualizado. Ahora depende
+// únicamente de la fecha real, nunca de un flag guardado. Si ya existe una
+// versión con la vigencia calculada, se sobrescribe (con confirmación
+// aparte en el cliente); si no existe ninguna, se crea de cero.
+export type UploadTarget = {
+  vigencia: { anio: number; mes: number };
+  existingId: string | null;
+  existingVersionNum: number | null;
+};
+
+export async function resolveUploadTarget(modo: "pisar" | "proximo"): Promise<UploadTarget> {
   const supabase = createServiceClient();
-  const { data } = await supabase
+  const hoy = vigenciaDeHoy();
+  const target = modo === "pisar" ? hoy : nextVigencia(hoy);
+
+  const { data: existing } = await supabase
     .from("price_list_versions")
-    .select("vigencia_anio, vigencia_mes")
-    .order("vigencia_anio", { ascending: false })
-    .order("vigencia_mes", { ascending: false })
-    .limit(1)
+    .select("id, version_num")
+    .eq("vigencia_anio", target.anio)
+    .eq("vigencia_mes", target.mes)
     .maybeSingle();
 
-  const base = data ? { anio: data.vigencia_anio, mes: data.vigencia_mes } : vigenciaDeHoy();
-  const next = data ? nextVigencia(base) : base;
-  return { anio: next.anio, mes: next.mes, label: formatVigencia(next) };
+  return { vigencia: target, existingId: existing?.id ?? null, existingVersionNum: existing?.version_num ?? null };
 }
 
 export async function loadAllDiscountPolicies(): Promise<DiscountPolicy[]> {

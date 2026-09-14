@@ -12,7 +12,7 @@ const CONFIRM_DESCRIPCION: Record<Modo, string> = {
   proximo: "del próximo mes",
 };
 
-export default function UploadForm() {
+export default function UploadForm({ existingProximoLabel }: { existingProximoLabel: string | null }) {
   const [state, setState] = useState<UploadState | null>(null);
   const [pending, startTransition] = useTransition();
   const [fileName, setFileName] = useState<string | null>(null);
@@ -26,7 +26,13 @@ export default function UploadForm() {
       return;
     }
 
-    const ok = confirm(`¿Confirmás que querés subir este archivo como lista de precios ${CONFIRM_DESCRIPCION[modo]}?`);
+    // RF-66: si ya hay una lista cargada para el próximo mes, el popup avisa
+    // puntualmente que la va a sobrescribir, en vez del texto genérico.
+    const mensaje =
+      modo === "proximo" && existingProximoLabel
+        ? `Ya está cargada la lista del próximo mes (${existingProximoLabel}), ¿estás seguro que querés sobreescribirla con esta versión?`
+        : `¿Confirmás que querés subir este archivo como lista de precios ${CONFIRM_DESCRIPCION[modo]}?`;
+    const ok = confirm(mensaje);
     if (!ok) return;
 
     setState(null);
@@ -117,16 +123,7 @@ export default function UploadForm() {
         <div style={{ marginTop: 16, padding: 14, border: "1px solid var(--border-default)", borderRadius: 10, background: "var(--brand-orange-focus-bg)" }}>
           <p style={{ margin: "0 0 8px", fontSize: 14 }}>
             ✅ Se interpretaron <strong>{state.report.totalCells}</strong> celdas de precio, en las regiones:{" "}
-            {state.report.regionsParsed.join(", ")}.{" "}
-            {state.vigenteDeInmediato ? (
-              <>
-                Lista de precios actualizada: <strong>{state.vigenciaLabel}</strong>.
-              </>
-            ) : (
-              <>
-                Vigencia asignada: <strong>{state.vigenciaLabel}</strong>.
-              </>
-            )}
+            {state.report.regionsParsed.join(", ")}. Lista de precios: <strong>{state.vigenciaLabel}</strong>.
           </p>
           {state.report.warnings.length > 0 && (
             <div style={{ fontSize: 13 }}>
@@ -140,8 +137,8 @@ export default function UploadForm() {
           )}
           <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--text-neutral)" }}>
             {state.vigenteDeInmediato
-              ? "Ya está pisando la lista activa — se usa en las cotizaciones nuevas de inmediato, sin pasar por Activar."
-              : "Quedó guardada como borrador. Activala desde el historial de versiones cuando quieras que empiece a usarse en las cotizaciones."}
+              ? "Ya está pisando la lista activa — se usa en las cotizaciones nuevas de inmediato."
+              : "Ya está disponible como lista del mes siguiente en el cotizador — no hace falta ningún paso más."}
           </p>
         </div>
       )}
