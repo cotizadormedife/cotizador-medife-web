@@ -78,32 +78,30 @@ export default function UploadForm() {
           </button>
         </div>
 
-        {fileName && (
-          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 44, fontSize: 12, whiteSpace: "nowrap" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <input
-                type="radio"
-                name="modo"
-                value="pisar"
-                checked={modo === "pisar"}
-                onChange={() => setModo("pisar")}
-                style={{ width: 16, height: 16, minHeight: 0, padding: 0, border: "none", margin: 0, accentColor: "var(--brand-orange)" }}
-              />
-              Pisar lista del mes actual
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <input
-                type="radio"
-                name="modo"
-                value="proximo"
-                checked={modo === "proximo"}
-                onChange={() => setModo("proximo")}
-                style={{ width: 16, height: 16, minHeight: 0, padding: 0, border: "none", margin: 0, accentColor: "var(--brand-orange)" }}
-              />
-              Lista del próximo mes
-            </label>
-          </div>
-        )}
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 44, fontSize: 12, whiteSpace: "nowrap" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <input
+              type="radio"
+              name="modo"
+              value="pisar"
+              checked={modo === "pisar"}
+              onChange={() => setModo("pisar")}
+              style={{ width: 16, height: 16, minHeight: 0, padding: 0, border: "none", margin: 0, accentColor: "var(--brand-orange)" }}
+            />
+            Pisar lista del mes actual
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <input
+              type="radio"
+              name="modo"
+              value="proximo"
+              checked={modo === "proximo"}
+              onChange={() => setModo("proximo")}
+              style={{ width: 16, height: 16, minHeight: 0, padding: 0, border: "none", margin: 0, accentColor: "var(--brand-orange)" }}
+            />
+            Lista del próximo mes
+          </label>
+        </div>
         <button type="submit" className="btn-primary" disabled={pending}>
           {pending ? "Procesando..." : "Subir y validar"}
         </button>
