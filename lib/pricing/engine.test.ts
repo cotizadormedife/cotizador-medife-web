@@ -304,6 +304,85 @@ describe("computeQuote", () => {
     expect(mes13.porPlan.PLATA).toBeCloseTo(sinDescuento, 0);
   });
 
+  it("un descuento escalonado (schedule) aplica el tramo correcto en cada mes de la proyección", () => {
+    const opcion1Like = policy({
+      id: "opcion-1-nac-Vol",
+      nombre: "Opción 1",
+      valorPct: -0.3, // tramo 1, usado también como precio "de hoy" (mes 1)
+      plazoMeses: 7,
+      concatenable: false,
+      schedule: [
+        { seq: 1, valorPct: -0.3, months: 3 },
+        { seq: 2, valorPct: -0.2, months: 2 },
+        { seq: 3, valorPct: -0.1, months: 2 },
+      ],
+    });
+    const input: QuoteInput = {
+      region: "AMBA",
+      categoria: "Vol",
+      procedencia: "Otros",
+      filial: "CABA",
+      miembros: [{ tipo: "Titular", rango: "36-40" }],
+      selectedPolicyIds: ["opcion-1-nac-Vol"],
+    };
+    const precios = [237746, 178824, 210381, 247525, 306521, 430356, 559463];
+    const data = baseData([opcion1Like], priceRows("36-40", precios));
+    const result = computeQuote(input, data);
+    const sinDescuento = precios[4] * 1.105;
+    const porMes = (m: number) => result.proyeccionCuotas.find((c) => c.month === m)!.porPlan.PLATA;
+
+    expect(porMes(1)).toBeCloseTo(sinDescuento * 0.7, 0);
+    expect(porMes(3)).toBeCloseTo(sinDescuento * 0.7, 0);
+    expect(porMes(4)).toBeCloseTo(sinDescuento * 0.8, 0);
+    expect(porMes(5)).toBeCloseTo(sinDescuento * 0.8, 0);
+    expect(porMes(6)).toBeCloseTo(sinDescuento * 0.9, 0);
+    expect(porMes(7)).toBeCloseTo(sinDescuento * 0.9, 0);
+    expect(porMes(8)).toBeCloseTo(sinDescuento, 0);
+  });
+
+  it("Opción 5 (concatenable) arranca recién el mes siguiente a que vence Opción 1/2/3, no en simultáneo", () => {
+    const opcion2Like = policy({
+      id: "opcion-2-nac-Vol",
+      nombre: "Opción 2",
+      valorPct: -0.3,
+      plazoMeses: 9,
+      concatenable: false,
+      schedule: [
+        { seq: 1, valorPct: -0.3, months: 3 },
+        { seq: 2, valorPct: -0.1, months: 6 },
+      ],
+    });
+    const opcion5Like = policy({
+      id: "opcion-5-nac-Vol",
+      nombre: "Opción 5",
+      valorPct: -0.05,
+      plazoMeses: 6,
+      concatenable: true,
+    });
+    const input: QuoteInput = {
+      region: "AMBA",
+      categoria: "Vol",
+      procedencia: "comprobable",
+      filial: "CABA",
+      miembros: [{ tipo: "Titular", rango: "36-40" }],
+      selectedPolicyIds: ["opcion-2-nac-Vol", "opcion-5-nac-Vol"],
+    };
+    const precios = [237746, 178824, 210381, 247525, 306521, 430356, 559463];
+    const data = baseData([opcion2Like, opcion5Like], priceRows("36-40", precios));
+    const result = computeQuote(input, data);
+    const sinDescuento = precios[4] * 1.105;
+    const porMes = (m: number) => result.proyeccionCuotas.find((c) => c.month === m)!.porPlan.PLATA;
+
+    expect(porMes(3)).toBeCloseTo(sinDescuento * 0.7, 0);
+    expect(porMes(9)).toBeCloseTo(sinDescuento * 0.9, 0);
+    // Opción 5 no se suma durante Opción 2 — recién arranca en el mes 10.
+    expect(porMes(9)).not.toBeCloseTo(sinDescuento * 0.85, 0);
+    expect(porMes(10)).toBeCloseTo(sinDescuento * 0.95, 0);
+    expect(porMes(13)).toBeCloseTo(sinDescuento * 0.95, 0);
+    // Mes 18 (única cuota proyectada después del 13): Opción 5 ya venció (6 meses desde el 10).
+    expect(porMes(18)).toBeCloseTo(sinDescuento, 0);
+  });
+
   it("IVA 10.5% se aplica en Voluntario", () => {
     const input: QuoteInput = {
       region: "AMBA",
