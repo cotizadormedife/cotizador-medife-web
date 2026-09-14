@@ -15,11 +15,17 @@ const CONFIRM_DESCRIPCION: Record<Modo, string> = {
 export default function UploadForm() {
   const [state, setState] = useState<UploadState | null>(null);
   const [pending, startTransition] = useTransition();
-  const [fileSelected, setFileSelected] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [modo, setModo] = useState<Modo>("proximo");
   const fileRef = useRef<HTMLInputElement>(null);
 
   function submit(formData: FormData) {
+    const file = formData.get("file") as File | null;
+    if (!file || file.size === 0) {
+      alert("Elegí un archivo .xlsx.");
+      return;
+    }
+
     const ok = confirm(`¿Confirmás que querés subir este archivo como lista de precios ${CONFIRM_DESCRIPCION[modo]}?`);
     if (!ok) return;
 
@@ -29,7 +35,7 @@ export default function UploadForm() {
       setState(res);
       if (res.ok) {
         if (fileRef.current) fileRef.current.value = "";
-        setFileSelected(false);
+        setFileName(null);
         setModo("proximo");
       }
     });
@@ -37,17 +43,39 @@ export default function UploadForm() {
 
   return (
     <div>
-      <form action={submit} style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <input
-          ref={fileRef}
-          type="file"
-          name="file"
-          accept=".xlsx"
-          required
-          onChange={(e) => setFileSelected(e.target.files != null && e.target.files.length > 0)}
-          style={{ flex: fileSelected ? "0 1 146px" : "1 1 260px" }}
-        />
-        {fileSelected && (
+      <form action={submit} style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" }}>
+          <div
+            style={{
+              boxSizing: "border-box",
+              width: 292,
+              padding: "13px 14px",
+              border: "1px solid var(--border-default)",
+              borderRadius: "var(--radius-input)",
+              fontSize: 14,
+              color: fileName ? "var(--text-primary)" : "var(--text-muted)",
+              background: "#ffffff",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {fileName ?? "Ningún archivo seleccionado"}
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            name="file"
+            accept=".xlsx"
+            onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
+            style={{ display: "none" }}
+          />
+          <button type="button" onClick={() => fileRef.current?.click()} style={{ padding: "8px 16px", fontSize: 13, minHeight: 0 }}>
+            Seleccionar archivo
+          </button>
+        </div>
+
+        {fileName && (
           <div style={{ display: "flex", flexDirection: "column", gap: 1, fontSize: 10, lineHeight: 1.2, whiteSpace: "nowrap" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 3 }}>
               <input
