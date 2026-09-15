@@ -115,12 +115,32 @@ export async function promoteToSuperAdminAction(userId: string) {
   revalidatePath("/admin/users");
 }
 
-// RF-38: el Super Admin puede quitarle el rol Admin a un usuario (vuelve a Vendedor).
+// RF-38/RF-70: quitar el rol Admin a un usuario (vuelve a Vendedor). Mismo
+// alcance por empresa que ascender a Admin — un Admin de una empresa
+// distinta de Medife solo puede hacerlo dentro de su propia empresa; un
+// Admin de Medife y el Super Admin no tienen esa restricción.
 export async function demoteFromAdminAction(userId: string) {
-  const actor = await requireRole(["super_admin"]);
+  const actor = await requireRole(["admin", "super_admin"]);
+  await assertActionableTarget(actor, userId);
+  await assertSameEmpresaScope(actor, userId);
   const supabase = createServiceClient();
   await supabase.from("profiles").update({ role: "vendedor" }).eq("id", userId).eq("role", "admin");
   await logAction(actor.id, "role.demote_admin", userId);
+  revalidatePath("/admin/users");
+}
+
+// RF-70: el Super Admin puede quitarle el rol Super Admin a otro Super Admin
+// (vuelve a Admin — sigue en Medife, así que se lo puede volver a ascender
+// a Super Admin después con promoteToSuperAdminAction). Solo el Super Admin
+// tiene esta potestad, sin excepción por empresa.
+export async function demoteFromSuperAdminAction(userId: string) {
+  const actor = await requireRole(["super_admin"]);
+  if (actor.id === userId) {
+    throw new Error("No podés aplicar esta acción sobre tu propia cuenta.");
+  }
+  const supabase = createServiceClient();
+  await supabase.from("profiles").update({ role: "admin" }).eq("id", userId).eq("role", "super_admin");
+  await logAction(actor.id, "role.demote_super_admin", userId);
   revalidatePath("/admin/users");
 }
 

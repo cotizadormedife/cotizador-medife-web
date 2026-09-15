@@ -7,6 +7,7 @@ import {
   promoteToAdminAction,
   promoteToSuperAdminAction,
   demoteFromAdminAction,
+  demoteFromSuperAdminAction,
   updateUserEmpresaAction,
   resendInviteAction,
 } from "./actions";
@@ -155,7 +156,7 @@ export default function UserRow({
               Ascender a Admin
             </button>
           )}
-          {isSuperAdmin && user.role === "admin" && (
+          {user.role === "admin" && (
             <button type="button" onClick={() => run(() => demoteFromAdminAction(user.id))} disabled={pending}>
               Quitar Admin
             </button>
@@ -163,6 +164,11 @@ export default function UserRow({
           {isSuperAdmin && user.role !== "super_admin" && user.empresa_id === MEDIFE_EMPRESA_ID && (
             <button type="button" onClick={() => run(() => promoteToSuperAdminAction(user.id))} disabled={pending}>
               Hacer Super Admin
+            </button>
+          )}
+          {isSuperAdmin && user.role === "super_admin" && (
+            <button type="button" onClick={() => run(() => demoteFromSuperAdminAction(user.id))} disabled={pending}>
+              Quitar Super Admin
             </button>
           )}
         </div>
