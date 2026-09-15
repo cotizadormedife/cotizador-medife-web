@@ -310,6 +310,16 @@ describe("parseDiscountPolicies", () => {
     expect(report.warnings).toEqual([]);
   });
 
+  it("CABA en Procedencia sigue siendo una filial puntual (no se pierde por ser también región)", async () => {
+    const dtoCaba: Row = { ...dtoIndie, descripcion: "Dto Mes 36/65_Oro", procedencia: "CABA", comentarios: "" };
+    const dtoGbaSur: Row = { ...dtoIndie, descripcion: "Dto Mes 36/40_Bronce", procedencia: "GBA Sur", comentarios: "" };
+    const buf = await buildWorkbook([dtoCaba, dtoGbaSur]);
+    const { policies, report } = await parseDiscountPolicies(buf, ["CABA", "GBA Sur", "GBA Oeste", "GBA Norte"]);
+    expect(policies[0].zonaFilial).toBe("CABA");
+    expect(policies[1].zonaFilial).toBe("GBA Sur");
+    expect(report.warnings).toEqual([]);
+  });
+
   it("hoja faltante produce error controlado", async () => {
     const wb = new ExcelJS.Workbook();
     wb.addWorksheet("Otra hoja");

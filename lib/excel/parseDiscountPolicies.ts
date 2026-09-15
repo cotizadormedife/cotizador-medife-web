@@ -150,6 +150,10 @@ function foldAccents(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
+function matchesKnownFilial(token: string, knownCodes: string[]): boolean {
+  return knownCodes.some((code) => foldAccents(code) === foldAccents(token));
+}
+
 function canonicalizeFilial(token: string, knownCodes: string[], warnings: string[], nombre: string): string {
   if (knownCodes.length === 0) return token; // sin lista de referencia, no se puede verificar
   const direct = knownCodes.find((code) => foldAccents(code) === foldAccents(token));
@@ -320,10 +324,13 @@ export async function parseDiscountPolicies(buffer: ArrayBuffer, knownFilialCode
       // pide método de pago ni ese tipo de datos, el descuento queda visible
       // y lo aplica el operador a criterio propio. Sin warning: es el
       // comportamiento esperado, no un caso a revisar.
-    } else if (REGION_MAP[upper(procedenciaRaw)]) {
+    } else if (REGION_MAP[upper(procedenciaRaw)] && !matchesKnownFilial(procedenciaRaw, knownFilialCodes)) {
       // La columna Procedencia a veces repite el nombre de la región entera
-      // (ej. "AMBA", "Bahía/MDQ ") en vez de una filial puntual — eso no es
-      // una restricción de zona, ya está cubierto por "region".
+      // (ej. "AMBA", "GBA", "Bahía/MDQ ") en vez de una filial puntual — eso
+      // no es una restricción de zona, ya está cubierto por "region". Pero
+      // si el texto SÍ coincide con un código de filial real (ej. "CABA",
+      // "Comahue"), se respeta como filial puntual — no todo lo que aparece
+      // en REGION_MAP deja de ser también una filial concreta.
       zonaFilial = null;
     } else {
       const raw = mapZonaFilial(procedenciaRaw);
