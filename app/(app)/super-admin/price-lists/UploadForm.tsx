@@ -124,7 +124,8 @@ export default function UploadForm({ existingProximoLabel }: { existingProximoLa
           <p style={{ margin: "0 0 8px", fontSize: 14 }}>
             ✅ Se interpretaron <strong>{state.report.totalCells}</strong> celdas de precio, en las regiones:{" "}
             {state.report.regionsParsed.join(", ")}, y <strong>{state.report.totalPolicies}</strong> políticas de
-            descuento/recargo ({Object.entries(state.report.porGrupo).map(([g, n]) => `${g}: ${n}`).join(", ")}).
+            descuento/recargo ({Object.entries(state.report.porGrupo).map(([g, n]) => `${g}: ${n}`).join(", ")}), y{" "}
+            <strong>{state.report.totalRegiones}</strong> regiones / <strong>{state.report.totalFiliales}</strong> filiales.
             Lista de precios: <strong>{state.vigenciaLabel}</strong>.
           </p>
           {state.report.warnings.length > 0 && (
@@ -142,6 +143,16 @@ export default function UploadForm({ existingProximoLabel }: { existingProximoLa
               <strong>Avisos de políticas comerciales ({state.report.policyWarnings.length}):</strong>
               <ul>
                 {state.report.policyWarnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {state.report.geoWarnings.length > 0 && (
+            <div style={{ fontSize: 13, marginTop: 8 }}>
+              <strong>Avisos de regiones/filiales ({state.report.geoWarnings.length}):</strong>
+              <ul>
+                {state.report.geoWarnings.map((w, i) => (
                   <li key={i}>{w}</li>
                 ))}
               </ul>

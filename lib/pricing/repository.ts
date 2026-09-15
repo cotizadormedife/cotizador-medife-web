@@ -223,17 +223,28 @@ export async function resolveUploadTarget(modo: "pisar" | "proximo"): Promise<Up
   return { vigencia: target, existingId: existing?.id ?? null, existingVersionNum: existing?.version_num ?? null };
 }
 
-export async function loadAllDiscountPolicies(): Promise<DiscountPolicy[]> {
-  const data = await loadPricingData("AMBA", "Vol");
+// RF-M9: "AMBA"/"Vol" acá son solo para satisfacer la firma de
+// loadPricingData — discount_policies no se filtra por región/categoría,
+// así que no importa que ese código exista o no en el set de esta versión.
+export async function loadAllDiscountPolicies(priceListVersionId: string): Promise<DiscountPolicy[]> {
+  const data = await loadPricingData("AMBA", "Vol", priceListVersionId);
   return data.policies;
 }
 
-export async function getRegionsAndFiliales() {
+// RF-M9: regiones y filiales pasan a estar versionadas por lista de
+// precios (snapshot de la hoja "Info" del Excel de esa carga) — antes eran
+// un catálogo global único, sin importar qué lista se estuviera cotizando.
+export async function getRegionsAndFiliales(priceListVersionId: string) {
   const supabase = createServiceClient();
-  const { data: regions } = await supabase.from("regions").select("code, nombre, sort_order").order("sort_order");
+  const { data: regions } = await supabase
+    .from("price_list_version_regions")
+    .select("code, nombre, sort_order")
+    .eq("price_list_version_id", priceListVersionId)
+    .order("sort_order");
   const { data: filiales } = await supabase
-    .from("filiales")
+    .from("price_list_version_filiales")
     .select("code, region_code, nombre, sort_order")
+    .eq("price_list_version_id", priceListVersionId)
     .order("sort_order");
   return { regions: regions ?? [], filiales: filiales ?? [] };
 }

@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
 import { parsePriceList } from "@/lib/excel/parsePriceList";
 import { parseDiscountPolicies } from "@/lib/excel/parseDiscountPolicies";
+import { parseRegionesFiliales } from "@/lib/excel/parseRegionesFiliales";
 import { resolveUploadTarget } from "@/lib/pricing/repository";
 import { formatVigencia } from "@/lib/pricing/vigencia";
 import { logAction } from "@/lib/auditLog";
@@ -23,6 +24,9 @@ export type UploadState =
         totalPolicies: number;
         porGrupo: Record<string, number>;
         policyWarnings: string[];
+        totalRegiones: number;
+        totalFiliales: number;
+        geoWarnings: string[];
       };
     }
   | { ok: false; error: string };
@@ -54,7 +58,7 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
   // RF-M8: el mismo archivo trae también, en "Políticas Comerciales", el
   // modelo de descuentos/recargos — se interpreta acá y se carga junto con
   // los precios, versionado a la misma price_list_version.
-  const { data: filiales } = await supabase.from("filiales").select("code");
+  const { data: filiales } = await supabase.from("filiales").select("code, region_code, nombre, sort_order");
   const filialCodes = (filiales ?? []).map((f) => f.code);
   let parsedPolicies;
   try {
@@ -64,6 +68,22 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
   }
   if (!parsedPolicies.report.ok) {
     return { ok: false, error: parsedPolicies.report.errors.join(" ") || "No se pudo interpretar la hoja de políticas comerciales." };
+  }
+
+  // RF-M9: la hoja "Info" trae también qué regiones/filiales aplican a esta
+  // carga — se valida contra el catálogo real (ya correcto y estable) y
+  // hereda de ahí la región puntual de cada filial.
+  const { data: regionsData } = await supabase.from("regions").select("code, nombre, sort_order");
+  const existingRegions = (regionsData ?? []).map((r) => ({ code: r.code, nombre: r.nombre, sortOrder: r.sort_order }));
+  const existingFiliales = (filiales ?? []).map((f) => ({ code: f.code, regionCode: f.region_code, nombre: f.nombre, sortOrder: f.sort_order }));
+  let parsedGeo;
+  try {
+    parsedGeo = await parseRegionesFiliales(buffer, existingRegions, existingFiliales);
+  } catch (e: any) {
+    return { ok: false, error: "No se pudo leer regiones/filiales del archivo: " + (e.message ?? String(e)) };
+  }
+  if (parsedGeo.report.errors.length > 0) {
+    return { ok: false, error: parsedGeo.report.errors.join(" ") };
   }
 
   // RF-66/RF-67: "pisar" siempre apunta a la vigencia de la activa actual (y
@@ -87,6 +107,8 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     monto: p.monto,
   }));
   const policyRows = parsedPolicies.policies;
+  const regionRows = parsedGeo.regions;
+  const filialRows = parsedGeo.filiales;
 
   const combinedReport = {
     totalCells: parsed.report.totalCells,
@@ -96,6 +118,9 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     totalPolicies: parsedPolicies.report.totalPolicies,
     porGrupo: parsedPolicies.report.porGrupo,
     policyWarnings: parsedPolicies.report.warnings,
+    totalRegiones: regionRows.length,
+    totalFiliales: filialRows.length,
+    geoWarnings: parsedGeo.report.warnings,
   };
 
   if (target.existingId) {
@@ -106,6 +131,8 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
       p_source_filename: file.name,
       p_parse_report: combinedReport,
       p_actor_id: actor.id,
+      p_region_rows: regionRows,
+      p_filial_rows: filialRows,
     });
     if (rpcErr) {
       return { ok: false, error: "No se pudieron reemplazar los precios y descuentos: " + rpcErr.message };
@@ -140,6 +167,8 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     p_policy_rows: policyRows,
     p_parse_report: combinedReport,
     p_actor_id: actor.id,
+    p_region_rows: regionRows,
+    p_filial_rows: filialRows,
   });
   if (rpcErr || !newVersionId) {
     return { ok: false, error: "No se pudo crear la versión: " + (rpcErr?.message ?? "") };

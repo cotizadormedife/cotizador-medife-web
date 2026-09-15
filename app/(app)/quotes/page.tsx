@@ -7,7 +7,7 @@ import {
 } from "@/lib/pricing/repository";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
-import QuoteForm, { type QuoteFormInitial } from "./QuoteForm";
+import QuoteForm, { type QuoteFormInitial, type VersionBundle } from "./QuoteForm";
 
 export default async function QuotesPage({
   searchParams,
@@ -16,9 +16,7 @@ export default async function QuotesPage({
 }) {
   const { rehacer } = await searchParams;
 
-  const [{ regions, filiales }, policies, profile, selectablePriceListVersions, vigenciaSelection] = await Promise.all([
-    getRegionsAndFiliales(),
-    loadAllDiscountPolicies(),
+  const [profile, selectablePriceListVersions, vigenciaSelection] = await Promise.all([
     getCurrentProfile(),
     listSelectablePriceListVersions(),
     getVigenciaSelection(),
@@ -66,7 +64,7 @@ export default async function QuotesPage({
 
   // RF-65: la lista de "mes siguiente" puede seguir en borrador — no forma
   // parte de selectablePriceListVersions (RF-41), así que se agrega aparte
-  // para que el combo "Lista de precios" la pueda mostrar seleccionada.
+  // para que el combo "Lista a utilizar" la pueda mostrar seleccionada.
   if (vigenciaSelection.siguiente && !priceListVersions.some((v) => v.id === vigenciaSelection.siguiente!.id)) {
     const siguiente = await getPriceListVersionInfo(vigenciaSelection.siguiente.id);
     if (siguiente) {
@@ -74,11 +72,31 @@ export default async function QuotesPage({
     }
   }
 
+  // RF-M9: se precarga el set completo (regiones, filiales, descuentos) de
+  // cada lista que el cotizador puede llegar a mostrar — así, al cambiar
+  // "Lista a utilizar" en el cliente, todo se conmuta al instante, sin ida
+  // y vuelta al servidor.
+  const versionIdsToBundle = Array.from(
+    new Set(
+      [vigenciaSelection.actual?.id, vigenciaSelection.siguiente?.id, initial?.priceListVersionId].filter(
+        (id): id is string => Boolean(id)
+      )
+    )
+  );
+  const bundleEntries = await Promise.all(
+    versionIdsToBundle.map(async (versionId) => {
+      const [{ regions, filiales }, policies] = await Promise.all([
+        getRegionsAndFiliales(versionId),
+        loadAllDiscountPolicies(versionId),
+      ]);
+      return [versionId, { regions, filiales, policies }] as [string, VersionBundle];
+    })
+  );
+  const bundlesByVersionId: Record<string, VersionBundle> = Object.fromEntries(bundleEntries);
+
   return (
     <QuoteForm
-      regions={regions}
-      filiales={filiales}
-      policies={policies}
+      bundlesByVersionId={bundlesByVersionId}
       priceListVersions={priceListVersions}
       vigenciaSelection={vigenciaSelection}
       vendedorDefault={`${profile?.nombre ?? ""} ${profile?.apellido ?? ""}`.trim()}
