@@ -366,7 +366,7 @@ export async function parseDiscountPolicies(buffer: ArrayBuffer, knownFilialCode
       warnings.push(`"${descripcion}": no se pudo interpretar el escalonado de "Detalle" ("${detalle}") — se importó sin cronograma, revisar.`);
     }
 
-    const planRules: ParsedPlanRule[] = PLANES.map((planCode, i) => {
+    let planRules: ParsedPlanRule[] = PLANES.map((planCode, i) => {
       const cell = row.getCell(COL_PLAN_START + i);
       const { value, isNumeric } = cellNumber(cell);
       if (!isNumeric && cellText(cell).trim() !== "") {
@@ -374,6 +374,17 @@ export async function parseDiscountPolicies(buffer: ArrayBuffer, knownFilialCode
       }
       return { planCode, aplica: value !== 0 };
     });
+
+    // Bug real detectado: en algunas filas de "Descuento Estratégico" las 7
+    // columnas de plan vienen todas en 0 a pesar de que "Valor % 1er mes" no
+    // lo es (ej. Opción 6) — el descuento queda seleccionable pero no aplica
+    // nada. Todas las demás filas de este grupo siguen el mismo patrón
+    // (aplica a todos los planes salvo INDIE, al valor general) — se usa
+    // como respaldo acá en vez de dejar la fila sin efecto en silencio.
+    if (grupo === "estrategico" && valorPct !== 0 && planRules.every((r) => !r.aplica)) {
+      planRules = PLANES.map((planCode) => ({ planCode, aplica: planCode !== "INDIE" }));
+      warnings.push(`"${descripcion}": las 7 columnas de plan vinieron en 0 pese a que el descuento tiene un valor (${(valorPct * 100).toFixed(1)}%) — se aplicó a todos los planes salvo INDIE (mismo criterio que el resto de "Descuento Estratégico"), revisar si corresponde.`);
+    }
 
     // Slug de clasificación: nombre + zona/región + categoría, legible y
     // único dentro de esta carga (no hace falta que sea global).

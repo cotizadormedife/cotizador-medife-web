@@ -10,7 +10,7 @@ import {
   isRequisitoCumplido,
 } from "./policyEligibility";
 
-const CUOTAS_PROYECCION = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 18];
+const CUOTAS_PROYECCION = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 24];
 
 function planFactor(policy: DiscountPolicy | null | undefined, planIdx: number): number {
   if (!policy) return 0;

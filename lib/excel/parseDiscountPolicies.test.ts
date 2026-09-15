@@ -206,6 +206,12 @@ describe("parseDiscountPolicies", () => {
     // pago) — se importa sin gate, sin generar warning (comportamiento esperado).
     expect(p6.procedenciaGate).toBe("");
     expect(report.warnings.some((w) => w.includes("Exclusivo Débito con TC"))).toBe(false);
+    // Bug real: el Excel trae las 7 columnas de plan en 0 para Opción 6 pese
+    // a tener valorPct propio — sin el respaldo, el descuento quedaría
+    // seleccionable pero sin efecto. Debe aplicar a todos los planes salvo INDIE.
+    expect(p6.planRules.find((r) => r.planCode === "INDIE")?.aplica).toBe(false);
+    expect(p6.planRules.filter((r) => r.planCode !== "INDIE").every((r) => r.aplica)).toBe(true);
+    expect(report.warnings.some((w) => w.includes("Opción 6") && w.includes("columnas de plan vinieron en 0"))).toBe(true);
 
     const p7 = policies.find((p) => p.nombre === "Opción 7")!;
     expect(p7.excluyeOtros).toBe(true);

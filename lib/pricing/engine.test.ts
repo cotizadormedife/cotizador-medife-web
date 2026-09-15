@@ -447,8 +447,8 @@ describe("computeQuote", () => {
     expect(porMes(9)).not.toBeCloseTo(sinDescuento * 0.85, 0);
     expect(porMes(10)).toBeCloseTo(sinDescuento * 0.95, 0);
     expect(porMes(13)).toBeCloseTo(sinDescuento * 0.95, 0);
-    // Mes 18 (única cuota proyectada después del 13): Opción 5 ya venció (6 meses desde el 10).
-    expect(porMes(18)).toBeCloseTo(sinDescuento, 0);
+    // Mes 24 (única cuota proyectada después del 13): Opción 5 ya venció (6 meses desde el 10).
+    expect(porMes(24)).toBeCloseTo(sinDescuento, 0);
   });
 
   it("IVA 10.5% se aplica en Voluntario", () => {
