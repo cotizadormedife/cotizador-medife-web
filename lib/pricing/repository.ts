@@ -45,8 +45,9 @@ export async function loadPricingData(region: string, categoria: Categoria, pric
   const { data: policyRows, error: policyErr } = await supabase
     .from("discount_policies")
     .select(
-      "id, nombre, tipo, region, categoria_scope, procedencia_gate, zona_filial, valor_pct, permanente, plazo_meses, concatenable, detalle, discount_policy_plan_rules(plan_code, aplica), discount_policy_schedule(seq, valor_pct, months)"
+      "id, slug, nombre, tipo, grupo, categoria_especial, region, categoria_scope, procedencia_gate, zona_filial, valor_pct, permanente, plazo_meses, concatenable, requiere_slug, excluye_otros, excluye_grupo, edad_max_titular_conyuge, detalle, discount_policy_plan_rules(plan_code, aplica), discount_policy_schedule(seq, valor_pct, months)"
     )
+    .eq("price_list_version_id", versionId)
     .eq("activo", true);
   if (policyErr) throw policyErr;
 
@@ -60,8 +61,11 @@ export async function loadPricingData(region: string, categoria: Categoria, pric
 
   const policies: DiscountPolicy[] = (policyRows ?? []).map((p: any) => ({
     id: p.id,
+    slug: p.slug,
     nombre: p.nombre,
     tipo: p.tipo,
+    grupo: p.grupo,
+    categoriaEspecial: p.categoria_especial,
     region: p.region,
     categoriaScope: p.categoria_scope,
     procedenciaGate: p.procedencia_gate ?? "",
@@ -70,6 +74,10 @@ export async function loadPricingData(region: string, categoria: Categoria, pric
     permanente: p.permanente,
     plazoMeses: p.plazo_meses,
     concatenable: p.concatenable,
+    requiereSlugPrefix: p.requiere_slug,
+    excluyeOtros: p.excluye_otros,
+    excluyeGrupo: p.excluye_grupo ?? [],
+    edadMaxTitularConyuge: p.edad_max_titular_conyuge,
     detalle: p.detalle,
     planRules: (p.discount_policy_plan_rules ?? []).map((r: any) => ({
       planCode: r.plan_code,

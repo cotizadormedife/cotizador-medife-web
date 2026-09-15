@@ -59,8 +59,9 @@ export default async function PriceListsPage() {
       <div className="card">
         <h2 style={{ fontSize: 16, margin: "0 0 10px" }}>Cargar nueva lista de precios</h2>
         <p style={{ fontSize: 13, color: "var(--text-neutral)", margin: "0 0 16px" }}>
-          Subí el archivo .xlsx con la hoja "Resumen LP". Se valida e interpreta, y queda utilizable de inmediato
-          — no hace falta ningún paso aparte de activación. "Pisar lista del mes actual" reemplaza los precios de{" "}
+          Subí el archivo .xlsx con las hojas "Resumen LP" (precios) y "Políticas Comerciales" (descuentos y
+          recargos) — las dos se interpretan y quedan utilizables de inmediato, no hace falta ningún paso aparte de
+          activación. "Pisar lista del mes actual" reemplaza los precios y descuentos de{" "}
           {actual ? (
             <strong>{formatVigencia({ anio: actual.vigencia_anio, mes: actual.vigencia_mes }, actual.version_num)}</strong>
           ) : (

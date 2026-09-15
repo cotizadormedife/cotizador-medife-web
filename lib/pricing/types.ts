@@ -48,10 +48,20 @@ export type PriceRow = {
 export type PlanRule = { planCode: string; aplica: boolean; valorOverride: number | null };
 export type ScheduleBlock = { seq: number; valorPct: number; months: number };
 
+// RF-M8: "grupo" viene directo de la columna "Tipo" del Excel y reemplaza
+// la adivinanza por prefijo de id que usaba el motor antes.
+export type PolicyGrupo = "gaf" | "recargo" | "ajuste" | "estrategico" | "tactico" | "otro";
+// Las 4 categorías "automáticas": nunca se muestran como checkbox, se
+// aplican solas cuando corresponde (reemplaza isAutoPolicy por prefijo de id).
+export type PolicyCategoriaEspecial = "ajuste_hijos" | "segmento_joven_h25" | "segmento_joven_h29" | "descuento_filial";
+
 export type DiscountPolicy = {
   id: string;
+  slug: string; // clasificación estable dentro de la versión (ej. "opcion-4-nac-Obl") — ya no es globalmente única
   nombre: string;
   tipo: "dto" | "gaf" | "ucc" | "recargo";
+  grupo: PolicyGrupo;
+  categoriaEspecial: PolicyCategoriaEspecial | null;
   region: string;
   categoriaScope: Categoria | null;
   procedenciaGate: string;
@@ -60,6 +70,11 @@ export type DiscountPolicy = {
   permanente: boolean;
   plazoMeses: number | null;
   concatenable: boolean;
+  // RF-M8: reglas de combinación leídas de la columna "Comentarios" del Excel.
+  requiereSlugPrefix: string | null; // ej. "opcion-4" — exige otra política seleccionada cuyo slug empiece así
+  excluyeOtros: boolean; // ej. Opción 7: no puede convivir con ninguna otra política seleccionable
+  excluyeGrupo: PolicyGrupo[]; // ej. Dto Indie: no puede convivir con nada de "estrategico"
+  edadMaxTitularConyuge: number | null; // ej. Opción 6: solo Titular/Cónyuge hasta esa edad
   detalle: string | null;
   planRules: PlanRule[];
   schedule: ScheduleBlock[];

@@ -14,10 +14,17 @@ function priceRows(ageBracketCode: string, montos: number[]) {
   return PLANES.map((planCode, i) => ({ ageBracketCode, planCode, monto: montos[i] }));
 }
 
+// RF-M8: grupo/categoriaEspecial/requiereSlugPrefix ya no se adivinan por
+// prefijo de id en el motor — pero los tests de acá abajo siguen usando esa
+// misma convención de nombres, así que este helper la reproduce una vez acá
+// para no tener que anotar los 3 campos a mano en cada caso de test.
 function policy(overrides: Partial<DiscountPolicy> & Pick<DiscountPolicy, "id">): DiscountPolicy {
-  return {
+  const merged: DiscountPolicy = {
+    slug: overrides.id,
     nombre: overrides.id,
     tipo: "dto",
+    grupo: "otro",
+    categoriaEspecial: null,
     region: "Nac",
     categoriaScope: null,
     procedenciaGate: "",
@@ -26,11 +33,32 @@ function policy(overrides: Partial<DiscountPolicy> & Pick<DiscountPolicy, "id">)
     permanente: false,
     plazoMeses: null,
     concatenable: false,
+    requiereSlugPrefix: null,
+    excluyeOtros: false,
+    excluyeGrupo: [],
+    edadMaxTitularConyuge: null,
     detalle: null,
     planRules: PLANES.map((planCode) => ({ planCode, aplica: true, valorOverride: null })),
     schedule: [],
     ...overrides,
   };
+  const id = merged.slug;
+  if (!("grupo" in overrides)) {
+    if (merged.procedenciaGate === "GAF") merged.grupo = "gaf";
+    else if (id.startsWith("ajuste-lista-hijos") || id.startsWith("segmento-joven") || id.startsWith("descuento-filial")) merged.grupo = "ajuste";
+    else if (id.startsWith("opcion-")) merged.grupo = "estrategico";
+    else if (id.startsWith("dto-mes") || id.startsWith("dto-indie")) merged.grupo = "tactico";
+  }
+  if (!("categoriaEspecial" in overrides)) {
+    if (id.startsWith("ajuste-lista-hijos")) merged.categoriaEspecial = "ajuste_hijos";
+    else if (id.startsWith("segmento-joven-h-25")) merged.categoriaEspecial = "segmento_joven_h25";
+    else if (id.startsWith("segmento-joven-h-29")) merged.categoriaEspecial = "segmento_joven_h29";
+    else if (id.startsWith("descuento-filial")) merged.categoriaEspecial = "descuento_filial";
+  }
+  if (!("requiereSlugPrefix" in overrides) && id.startsWith("opcion-6")) {
+    merged.requiereSlugPrefix = "opcion-4";
+  }
+  return merged;
 }
 
 const segJoven25InteriorPolicy = policy({
@@ -80,6 +108,7 @@ const ajusteHijosPolicy = policy({
 const uccPolicy = policy({
   id: "ucc",
   nombre: "UCC",
+  tipo: "ucc",
   region: "Norte",
   categoriaScope: null,
   procedenciaGate: "GAF",

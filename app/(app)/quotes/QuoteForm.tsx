@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { runQuoteAction, type RunQuoteState } from "./actions";
 import { RANGOS_BY_TIPO, RANGOS_HIJO_INTERIOR } from "@/lib/pricing/memberKey";
-import { isAutoPolicy, isOpcion6Allowed, isPolicyMemberEligible, isPolicyRelevant } from "@/lib/pricing/policyEligibility";
+import { isAutoPolicy, isExclusionOk, isPolicyMemberEligible, isPolicyRelevant, isRequisitoCumplido } from "@/lib/pricing/policyEligibility";
 import type { DiscountPolicy, Miembro, TipoMiembro } from "@/lib/pricing/types";
 import OptionGroup from "./OptionGroup";
 import QuoteResults, { fmtPct } from "./QuoteResults";
@@ -18,9 +18,8 @@ const MONOTRIBUTO_CATS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"]
 const TIPOS: TipoMiembro[] = ["Titular", "Esposo/a", "Hijo/a", "Familiar a cargo"];
 
 function getSection(p: DiscountPolicy): "gaf" | "estrategico" | "tactico" {
-  if (p.procedenciaGate === "GAF") return "gaf";
-  if (p.id.startsWith("opcion-")) return "estrategico";
-  if (p.id.startsWith("dto-mes") || p.id.startsWith("dto-indie")) return "tactico";
+  if (p.grupo === "gaf") return "gaf";
+  if (p.grupo === "tactico") return "tactico";
   return "estrategico";
 }
 
@@ -128,13 +127,16 @@ export default function QuoteForm({
 
   const selectable = useMemo(() => {
     const isAMBA = region === "AMBA";
+    const selectedSlugs = policies.filter((p) => selectedPolicyIds.includes(p.id)).map((p) => p.slug);
+    const selectedPolicies = policies.filter((p) => selectedPolicyIds.includes(p.id));
     return policies.filter(
       (p) =>
         !isAutoPolicy(p) &&
         p.tipo !== "recargo" &&
         isPolicyRelevant(p, { region, categoria, procedencia, filial }) &&
         isPolicyMemberEligible(p, miembros, isAMBA) &&
-        isOpcion6Allowed(p.id, selectedPolicyIds)
+        isRequisitoCumplido(p, selectedSlugs) &&
+        (selectedPolicyIds.includes(p.id) || isExclusionOk(p, selectedPolicies))
     );
   }, [policies, region, categoria, procedencia, filial, miembros, selectedPolicyIds]);
 

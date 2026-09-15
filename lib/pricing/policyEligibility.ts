@@ -66,14 +66,16 @@ const RANGO_ENDS: Record<string, number> = {
   "66+": 200,
 };
 
-// Además de isPolicyRelevant, algunos descuentos tácticos con rango de edad en el id
-// (dto-mes-XX-YY / dto-indie-XX-YY) solo aparecen si algún Titular/Esposo cae en ese rango.
+// RF-M8: el rango de edad de los descuentos tácticos (Dto Mes/Dto Indie) se
+// lee de la "Descripción" del Excel (ej. "Dto Mes 36/40_Bronce"), que el
+// importador copia tal cual al slug (dto-mes-36-40-... / dto-indie-18-25-...)
+// — se sigue matcheando por slug acá para no duplicar el parseo de rango.
 export function isPolicyMemberEligible(policy: DiscountPolicy, miembros: Miembro[], isAMBA: boolean): boolean {
-  const ageMatch = policy.id.match(/dto-(?:mes|indie)-(\d+)-(\d+)/);
+  const ageMatch = policy.slug.match(/dto-(?:mes|indie)-(\d+)-(\d+)/);
   if (ageMatch) {
     const minAge = parseInt(ageMatch[1], 10);
     const maxAge = parseInt(ageMatch[2], 10);
-    return miembros.some((m) => {
+    const rangeOk = miembros.some((m) => {
       if (m.tipo !== "Titular" && m.tipo !== "Esposo/a") return false;
       if (!m.rango) return false;
       const start = RANGO_STARTS[m.rango] ?? -1;
@@ -81,35 +83,45 @@ export function isPolicyMemberEligible(policy: DiscountPolicy, miembros: Miembro
       if (start < 0 || end < 0) return false;
       return end >= minAge && start <= maxAge;
     });
+    if (!rangeOk) return false;
   }
-  // RF-61: Opción 6 exige Titular y Cónyuge de hasta 60 años (Hijos y Familiar
-  // a cargo no la afectan).
-  if (policy.id.startsWith("opcion-6")) {
+  // RF-61/RF-M8: algunas políticas (ej. Opción 6) traen del Excel un tope de
+  // edad para Titular/Cónyuge (Hijos y Familiar a cargo no la afectan).
+  if (policy.edadMaxTitularConyuge != null) {
     return miembros.every((m) => {
       if (m.tipo !== "Titular" && m.tipo !== "Esposo/a") return true;
       const r = rangoEfectivo(m);
-      return r !== "61-65" && r !== "66+";
+      const end = RANGO_ENDS[r] ?? 0;
+      return end <= policy.edadMaxTitularConyuge!;
     });
   }
   return true;
 }
 
-// RF-61: Opción 6 solo es válida si Opción 4 también está seleccionada —
-// no existe de forma independiente.
-export function isOpcion6Allowed(policyId: string, selectedIds: string[]): boolean {
-  if (!policyId.startsWith("opcion-6")) return true;
-  return selectedIds.some((id) => id.startsWith("opcion-4"));
+// RF-61/RF-M8: algunas políticas (ej. Opción 6) solo son válidas si otra
+// también está seleccionada (leído de "Comentarios" del Excel: "Concatenable
+// con la opción 4" → requiereSlugPrefix="opcion-4").
+export function isRequisitoCumplido(policy: DiscountPolicy, selectedSlugs: string[]): boolean {
+  if (!policy.requiereSlugPrefix) return true;
+  return selectedSlugs.some((slug) => slug.startsWith(policy.requiereSlugPrefix!));
+}
+
+// RF-M8: reglas de exclusión leídas de "Comentarios" del Excel —
+// excluyeOtros (ej. Opción 7: "No acumulable con otros descuentos") y
+// excluyeGrupo (ej. Dto Indie: "No Acumulable con Descuento Estratégico").
+export function isExclusionOk(policy: DiscountPolicy, otrosSeleccionados: DiscountPolicy[]): boolean {
+  const otrosNoAutomaticos = otrosSeleccionados.filter((p) => p.id !== policy.id && !isAutoPolicy(p));
+  if (policy.excluyeOtros && otrosNoAutomaticos.length > 0) return false;
+  if (otrosNoAutomaticos.some((p) => p.excluyeGrupo.includes(policy.grupo))) return false;
+  if (policy.excluyeGrupo.length > 0 && otrosNoAutomaticos.some((p) => policy.excluyeGrupo.includes(p.grupo))) return false;
+  return true;
 }
 
 // Elegibilidad de un usuario individual seleccionable: excluye las 4 categorías
-// "automáticas" (ajuste-lista-hijos, segmento-joven-*, descuento-filial-*) — esas
+// "automáticas" (ajuste hijos, segmento joven, descuento filial) — esas
 // nunca se muestran como checkbox, se aplican solas.
 export function isAutoPolicy(policy: DiscountPolicy): boolean {
-  return (
-    policy.id.startsWith("ajuste-lista-hijos") ||
-    policy.id.startsWith("segmento-joven") ||
-    policy.id.startsWith("descuento-filial")
-  );
+  return policy.categoriaEspecial != null;
 }
 
 export function selectableDiscountPolicies(
@@ -134,7 +146,7 @@ export function findAjusteHijosPolicy(
 ): DiscountPolicy | null {
   const hayHijo = ctx.miembros.some((m) => m.tipo === "Hijo/a");
   if (!hayHijo) return null;
-  return policies.find((p) => p.id.startsWith("ajuste-lista-hijos") && isPolicyRelevant(p, ctx)) ?? null;
+  return policies.find((p) => p.categoriaEspecial === "ajuste_hijos" && isPolicyRelevant(p, ctx)) ?? null;
 }
 
 export function findSegmentoJovenPolicies(
@@ -156,10 +168,10 @@ export function findSegmentoJovenPolicies(
     (isAMBA && sinFamiliaAMBA && hayTitJoven25) || (!isAMBA && hayTitJoven25 && (!interiorConEsposo || hayEspJoven25));
 
   const h25 = segJovenEligible
-    ? policies.find((p) => p.id.startsWith("segmento-joven-h-25") && isPolicyRelevant(p, ctx)) ?? null
+    ? policies.find((p) => p.categoriaEspecial === "segmento_joven_h25" && isPolicyRelevant(p, ctx)) ?? null
     : null;
   const h29 = hayTitJoven29
-    ? policies.find((p) => p.id.startsWith("segmento-joven-h-29") && isPolicyRelevant(p, ctx)) ?? null
+    ? policies.find((p) => p.categoriaEspecial === "segmento_joven_h29" && isPolicyRelevant(p, ctx)) ?? null
     : null;
 
   return { h25, h29 };
@@ -169,5 +181,5 @@ export function findDescuentoFilialPolicy(
   policies: DiscountPolicy[],
   ctx: { region: string; categoria: string; procedencia: Procedencia; filial: string }
 ): DiscountPolicy | null {
-  return policies.find((p) => p.id.startsWith("descuento-filial") && isPolicyRelevant(p, ctx)) ?? null;
+  return policies.find((p) => p.categoriaEspecial === "descuento_filial" && isPolicyRelevant(p, ctx)) ?? null;
 }

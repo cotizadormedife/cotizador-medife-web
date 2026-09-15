@@ -5,8 +5,9 @@ import {
   findAjusteHijosPolicy,
   findDescuentoFilialPolicy,
   findSegmentoJovenPolicies,
-  isOpcion6Allowed,
+  isExclusionOk,
   isPolicyRelevant,
+  isRequisitoCumplido,
 } from "./policyEligibility";
 
 const CUOTAS_PROYECCION = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 18];
@@ -121,23 +122,22 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
   });
 
   // 6. Descuentos comerciales seleccionados por el usuario
-  // RF-61: Opción 6 nunca se aplica si Opción 4 no está también seleccionada
-  // — se valida acá además del formulario, para que no dependa solo del
-  // cliente.
-  const selectedPolicies = data.policies.filter(
+  // RF-61/RF-M8: algunas políticas exigen que otra también esté seleccionada
+  // (requiereSlugPrefix, ej. Opción 6 exige Opción 4) o excluyen a otras
+  // (excluyeOtros/excluyeGrupo, ej. Opción 7 excluye todo lo demás) — se
+  // valida acá además del formulario, para que no dependa solo del cliente.
+  const selectedSlugs = data.policies
+    .filter((p) => input.selectedPolicyIds.includes(p.id))
+    .map((p) => p.slug);
+  const requisitoOk = data.policies.filter(
     (p) =>
       input.selectedPolicyIds.includes(p.id) &&
       isPolicyRelevant(p, ctx) &&
-      isOpcion6Allowed(p.id, input.selectedPolicyIds)
+      isRequisitoCumplido(p, selectedSlugs)
   );
+  const selectedPolicies = requisitoOk.filter((p) => isExclusionOk(p, requisitoOk));
   const gafPolicies = selectedPolicies.filter((p) => p.procedenciaGate === "GAF");
-  const allBlanketPolicies = selectedPolicies.filter(
-    (p) =>
-      !p.id.startsWith("ajuste-lista-hijos") &&
-      !p.id.startsWith("segmento-joven") &&
-      !p.id.startsWith("descuento-filial") &&
-      p.procedenciaGate !== "GAF"
-  );
+  const allBlanketPolicies = selectedPolicies.filter((p) => p.grupo !== "ajuste" && p.grupo !== "gaf");
   const mainBlanket = allBlanketPolicies.filter((p) => !p.concatenable);
   const concatBlanket = allBlanketPolicies.filter((p) => p.concatenable);
   const mainPlazo = mainBlanket.reduce((mx, p) => Math.max(mx, p.plazoMeses || 0), 0);
@@ -150,8 +150,8 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
   const precioConDto = subtotalAjustado.map((sub, pi) => sub * (1 + totalDtoByPlan[pi]) + descFilialAmt[pi]);
 
   // 7. UCC — monto fijo sobre subtotalAjustado (misma base que el descuento comercial)
-  const uccPolicies = gafPolicies.filter((p) => p.id.startsWith("ucc"));
-  const nonUccGafPolicies = gafPolicies.filter((p) => !p.id.startsWith("ucc"));
+  const uccPolicies = gafPolicies.filter((p) => p.tipo === "ucc");
+  const nonUccGafPolicies = gafPolicies.filter((p) => p.tipo !== "ucc");
   const uccAmtByPlan = PLANES.map((_, pi) => {
     let t = 0;
     uccPolicies.forEach((p) => (t += planFactor(p, pi)));

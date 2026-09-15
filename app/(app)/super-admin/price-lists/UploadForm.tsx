@@ -123,13 +123,25 @@ export default function UploadForm({ existingProximoLabel }: { existingProximoLa
         <div style={{ marginTop: 16, padding: 14, border: "1px solid var(--border-default)", borderRadius: 10, background: "var(--brand-orange-focus-bg)" }}>
           <p style={{ margin: "0 0 8px", fontSize: 14 }}>
             ✅ Se interpretaron <strong>{state.report.totalCells}</strong> celdas de precio, en las regiones:{" "}
-            {state.report.regionsParsed.join(", ")}. Lista de precios: <strong>{state.vigenciaLabel}</strong>.
+            {state.report.regionsParsed.join(", ")}, y <strong>{state.report.totalPolicies}</strong> políticas de
+            descuento/recargo ({Object.entries(state.report.porGrupo).map(([g, n]) => `${g}: ${n}`).join(", ")}).
+            Lista de precios: <strong>{state.vigenciaLabel}</strong>.
           </p>
           {state.report.warnings.length > 0 && (
             <div style={{ fontSize: 13 }}>
-              <strong>Avisos ({state.report.warnings.length}):</strong>
+              <strong>Avisos de precios ({state.report.warnings.length}):</strong>
               <ul>
                 {state.report.warnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {state.report.policyWarnings.length > 0 && (
+            <div style={{ fontSize: 13, marginTop: 8 }}>
+              <strong>Avisos de políticas comerciales ({state.report.policyWarnings.length}):</strong>
+              <ul>
+                {state.report.policyWarnings.map((w, i) => (
                   <li key={i}>{w}</li>
                 ))}
               </ul>
