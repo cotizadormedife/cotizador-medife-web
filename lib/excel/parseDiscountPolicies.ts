@@ -73,11 +73,25 @@ const REGION_MAP: Record<string, string> = {
   NAC: "Nac",
   NA: "Nac",
   AMBA: "AMBA",
+  CABA: "AMBA", // confirmado por Diego: CABA también aplica en AMBA
+  GBA: "AMBA", // confirmado por Diego: GBA (sin Sur/Oeste/Norte) es AMBA en general
   NORTE: "Norte",
   SUR: "Sur",
   PATAGONIA: "Patagonia",
+  COMAHUE: "Patagonia", // confirmado por Diego: Comahue cae en la región Sur/Patagonia — Patagonia es la que usa la tabla de filiales
   "BAHÍA/MDQ": "Bahía/MDQ",
   INTERIOR: "Interior",
+};
+
+// Confirmado por Diego: las provincias que arma el Excel para "Descuento
+// Filial" dan la pauta de a qué filial real pertenecen, aunque el texto no
+// coincida con el código exacto. Se arranca con los casos ya confirmados —
+// extender acá a medida que aparezcan más en cargas reales.
+const PROVINCIA_A_FILIAL: Record<string, string> = {
+  TUCUMAN: "NOA",
+  TUCUMÁN: "NOA",
+  SALTA: "NOA",
+  JUJUY: "NOA",
 };
 
 function norm(raw: unknown): string {
@@ -138,8 +152,15 @@ function foldAccents(s: string): string {
 
 function canonicalizeFilial(token: string, knownCodes: string[], warnings: string[], nombre: string): string {
   if (knownCodes.length === 0) return token; // sin lista de referencia, no se puede verificar
-  const match = knownCodes.find((code) => foldAccents(code) === foldAccents(token));
-  if (match) return match;
+  const direct = knownCodes.find((code) => foldAccents(code) === foldAccents(token));
+  if (direct) return direct;
+  // Confirmado por Diego: una provincia (ej. "Tucumán") da la pauta de a
+  // qué filial pertenece, aunque el Excel no use el código exacto.
+  const viaProvincia = PROVINCIA_A_FILIAL[upper(token)];
+  if (viaProvincia) {
+    const match = knownCodes.find((code) => foldAccents(code) === foldAccents(viaProvincia));
+    if (match) return match;
+  }
   warnings.push(`"${nombre}": la filial "${token}" no coincide con ningún código conocido — se importó tal cual, revisar.`);
   return token;
 }
@@ -147,7 +168,7 @@ function canonicalizeFilial(token: string, knownCodes: string[], warnings: strin
 function mapZonaFilial(raw: string): string | null {
   const t = norm(raw);
   if (!t || upper(t) === "NA") return null;
-  return t.replace(/\s*\/\s*/g, ",");
+  return t.replace(/\s*\/\s*/g, ",").replace(/\s+y\s+/gi, ",");
 }
 
 // Schedule tipo "30% x 3; 20% x 2; 10% x2" -> bloques secuenciales, con el
@@ -275,8 +296,11 @@ export async function parseDiscountPolicies(buffer: ArrayBuffer, knownFilialCode
       region = "SurExt"; // GAF "SUR" cubre Sur+Patagonia+Bahía/MDQ, igual que hoy.
     }
 
+    // Confirmado por Diego: el "Plazo Max" manda siempre, para cualquier
+    // Tipo — incluido GAF (antes se asumía "permanente" para todo GAF sin
+    // mirar esta columna). Vacío/"NA" = sin fin de duración.
     const duracion = upper(cellText(row.getCell(COL_DURACION)));
-    const permanente = duracion === "PERMANENTE" || duracion === "GAF";
+    const permanente = duracion === "PERMANENTE";
     const plazoMeses = mapPlazoMeses(cellText(row.getCell(COL_PLAZO_MAX)));
 
     const categoriaScope = mapCategoriaScope(cellText(row.getCell(COL_CATEGORIA)));
@@ -290,12 +314,12 @@ export async function parseDiscountPolicies(buffer: ArrayBuffer, knownFilialCode
       const procUpper = upper(procedenciaRaw);
       if (procUpper === "CON PROCEDENCIA COMPROBABLE") {
         procedenciaGate = "comprobable";
-      } else if (procUpper !== "NA" && procUpper !== "") {
-        // Condiciones nuevas (ej. "Exclusivo Débito con TC", "BASE ex Asociados") que el
-        // formulario del vendedor todavía no puede validar automáticamente — se importa sin
-        // el gate (igual al criterio ya usado hoy para Opción 6) y se avisa para revisar.
-        warnings.push(`"${descripcion}": procedencia "${procedenciaRaw}" no se puede validar automáticamente (el formulario no la contempla) — se importó sin esa restricción, revisar.`);
       }
+      // Confirmado por Diego: otras condiciones de procedencia (ej. "Exclusivo
+      // Débito con TC", "BASE ex Asociados") no se validan — el formulario no
+      // pide método de pago ni ese tipo de datos, el descuento queda visible
+      // y lo aplica el operador a criterio propio. Sin warning: es el
+      // comportamiento esperado, no un caso a revisar.
     } else if (REGION_MAP[upper(procedenciaRaw)]) {
       // La columna Procedencia a veces repite el nombre de la región entera
       // (ej. "AMBA", "Bahía/MDQ ") en vez de una filial puntual — eso no es
@@ -304,10 +328,15 @@ export async function parseDiscountPolicies(buffer: ArrayBuffer, knownFilialCode
     } else {
       const raw = mapZonaFilial(procedenciaRaw);
       zonaFilial = raw
-        ? raw
-            .split(",")
-            .map((t) => canonicalizeFilial(t.trim(), knownFilialCodes, warnings, descripcion))
-            .join(",")
+        ? Array.from(
+            new Set(
+              raw
+                .split(",")
+                .map((t) => t.trim())
+                .filter(Boolean)
+                .map((t) => canonicalizeFilial(t, knownFilialCodes, warnings, descripcion))
+            )
+          ).join(",")
         : null;
     }
 

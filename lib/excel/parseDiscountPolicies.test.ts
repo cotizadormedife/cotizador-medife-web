@@ -202,9 +202,10 @@ describe("parseDiscountPolicies", () => {
     expect(p6.requiereSlugPrefix).toBe("opcion-4");
     expect(p6.concatenable).toBe(false); // se suma en simultáneo con Opción 4, no concatena después
     expect(p6.edadMaxTitularConyuge).toBe(60);
-    // "Exclusivo Débito con TC" no se puede validar hoy: se importa sin gate, con warning.
+    // "Exclusivo Débito con TC" no se valida (el formulario no pide método de
+    // pago) — se importa sin gate, sin generar warning (comportamiento esperado).
     expect(p6.procedenciaGate).toBe("");
-    expect(report.warnings.some((w) => w.includes("Opción 6") && w.includes("Exclusivo Débito con TC"))).toBe(true);
+    expect(report.warnings.some((w) => w.includes("Exclusivo Débito con TC"))).toBe(false);
 
     const p7 = policies.find((p) => p.nombre === "Opción 7")!;
     expect(p7.excluyeOtros).toBe(true);
@@ -263,6 +264,44 @@ describe("parseDiscountPolicies", () => {
     const buf = await buildWorkbook([opcion4, { ...opcion4, categoria: "Vol", valor: -0.15, planes: [0, -0.15, -0.15, -0.15, -0.15, -0.15, -0.15] }]);
     const { policies } = await parseDiscountPolicies(buf);
     expect(new Set(policies.map((p) => p.slug)).size).toBe(2);
+  });
+
+  it("provincias en Descuento Filial se resuelven a la filial real (NOA)", async () => {
+    const filialNoa: Row = { ...descuentoFilial, procedencia: "Tucumán, Salta y Jujuy" };
+    const buf = await buildWorkbook([filialNoa]);
+    const { policies, report } = await parseDiscountPolicies(buf, ["NOA", "Córdoba", "Santa Fe"]);
+    expect(policies[0].zonaFilial).toBe("NOA");
+    expect(report.warnings).toEqual([]);
+  });
+
+  it("CABA y COMAHUE en Zonas se resuelven a AMBA/Patagonia", async () => {
+    const caba: Row = { ...gaf, zonas: "CABA" };
+    const comahue: Row = { ...gaf, zonas: "COMAHUE", descripcion: "Algo en Comahue" };
+    const buf = await buildWorkbook([caba, comahue]);
+    const { policies } = await parseDiscountPolicies(buf);
+    expect(policies[0].region).toBe("AMBA");
+    expect(policies[1].region).toBe("Patagonia");
+  });
+
+  it("respeta Plazo Max también para GAF (antes se asumía siempre permanente)", async () => {
+    const gafConPlazo: Row = { ...gaf, plazoMax: "12 meses" };
+    const gafSinPlazo: Row = { ...gaf, descripcion: "GAF sin plazo", plazoMax: "NA" };
+    const buf = await buildWorkbook([gafConPlazo, gafSinPlazo]);
+    const { policies } = await parseDiscountPolicies(buf);
+    const conPlazo = policies.find((p) => p.nombre === gaf.descripcion)!;
+    expect(conPlazo.permanente).toBe(false);
+    expect(conPlazo.plazoMeses).toBe(12);
+    const sinPlazo = policies.find((p) => p.nombre === "GAF sin plazo")!;
+    expect(sinPlazo.permanente).toBe(false);
+    expect(sinPlazo.plazoMeses).toBeNull(); // sin plazo = sin fin de duración igual, aunque no sea "permanente"
+  });
+
+  it("GBA (sin sub-zona) en Procedencia no restringe la filial (equivale a AMBA)", async () => {
+    const dtoGba: Row = { ...dtoIndie, descripcion: "Dto Mes 18/65_Oro", procedencia: "GBA", comentarios: "" };
+    const buf = await buildWorkbook([dtoGba]);
+    const { policies, report } = await parseDiscountPolicies(buf);
+    expect(policies[0].zonaFilial).toBeNull();
+    expect(report.warnings).toEqual([]);
   });
 
   it("hoja faltante produce error controlado", async () => {

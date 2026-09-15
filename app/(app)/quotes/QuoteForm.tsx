@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { runQuoteAction, type RunQuoteState } from "./actions";
 import { RANGOS_BY_TIPO, RANGOS_HIJO_INTERIOR } from "@/lib/pricing/memberKey";
-import { isAutoPolicy, isExclusionOk, isPolicyMemberEligible, isPolicyRelevant, isRequisitoCumplido } from "@/lib/pricing/policyEligibility";
+import { isAutoPolicy, isPolicyMemberEligible, isPolicyRelevant, isRequisitoCumplido } from "@/lib/pricing/policyEligibility";
 import type { DiscountPolicy, Miembro, TipoMiembro } from "@/lib/pricing/types";
 import OptionGroup from "./OptionGroup";
 import QuoteResults, { fmtPct } from "./QuoteResults";
@@ -128,15 +128,18 @@ export default function QuoteForm({
   const selectable = useMemo(() => {
     const isAMBA = region === "AMBA";
     const selectedSlugs = policies.filter((p) => selectedPolicyIds.includes(p.id)).map((p) => p.slug);
-    const selectedPolicies = policies.filter((p) => selectedPolicyIds.includes(p.id));
+    // RF-M8: acá solo se oculta lo que tiene un requisito sin cumplir (ej.
+    // Opción 6 exige Opción 4) — igual que antes. Las exclusiones mutuas
+    // (excluyeOtros/excluyeGrupo, ej. Opción 7) NO ocultan el checkbox: el
+    // operador puede verlas y elegirlas siempre, el motor de cálculo es
+    // quien decide qué combinación queda aplicada al cotizar.
     return policies.filter(
       (p) =>
         !isAutoPolicy(p) &&
         p.tipo !== "recargo" &&
         isPolicyRelevant(p, { region, categoria, procedencia, filial }) &&
         isPolicyMemberEligible(p, miembros, isAMBA) &&
-        isRequisitoCumplido(p, selectedSlugs) &&
-        (selectedPolicyIds.includes(p.id) || isExclusionOk(p, selectedPolicies))
+        isRequisitoCumplido(p, selectedSlugs)
     );
   }, [policies, region, categoria, procedencia, filial, miembros, selectedPolicyIds]);
 
