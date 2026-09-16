@@ -76,6 +76,7 @@ export type DiscountPolicy = {
   excluyeGrupo: PolicyGrupo[]; // ej. Dto Indie: no puede convivir con nada de "estrategico"
   edadMaxTitularConyuge: number | null; // ej. Opción 6: solo Titular/Cónyuge hasta esa edad
   detalle: string | null;
+  fuenteComentario: string | null; // texto crudo de "Comentarios" del Excel (reglas de combinación)
   planRules: PlanRule[];
   schedule: ScheduleBlock[];
 };

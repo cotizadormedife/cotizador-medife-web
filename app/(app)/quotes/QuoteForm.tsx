@@ -488,6 +488,9 @@ function DiscountSection({
             <span style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 600 }}>{p.nombre}</div>
               {p.detalle && <div style={{ color: "var(--text-neutral)", fontSize: 12 }}>{p.detalle}</div>}
+              {p.fuenteComentario && (
+                <div style={{ color: "var(--text-neutral)", fontSize: 12, fontStyle: "italic" }}>{p.fuenteComentario}</div>
+              )}
             </span>
             <span style={{ whiteSpace: "nowrap", fontWeight: 600 }}>{fmtPct(p.valorPct)}</span>
           </label>

@@ -23,6 +23,7 @@ function policy(overrides: Partial<DiscountPolicy> & Pick<DiscountPolicy, "id">)
     excluyeGrupo: [],
     edadMaxTitularConyuge: null,
     detalle: null,
+    fuenteComentario: null,
     planRules: PLANES.map((planCode) => ({ planCode, aplica: true, valorOverride: null })),
     schedule: [],
     ...overrides,
