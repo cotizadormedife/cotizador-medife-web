@@ -451,6 +451,33 @@ describe("computeQuote", () => {
     expect(porMes(24)).toBeCloseTo(sinDescuento, 0);
   });
 
+  it("RF-M10: dos descuentos tácticos que compiten por el mismo plan — solo aplica el de mayor descuento", () => {
+    const debil = policy({
+      id: "dto-mes-plata-debil",
+      grupo: "tactico",
+      valorPct: -0.1,
+      planRules: PLANES.map((p) => ({ planCode: p, aplica: p === "PLATA", valorOverride: null })),
+    });
+    const fuerte = policy({
+      id: "dto-mes-plata-fuerte",
+      grupo: "tactico",
+      valorPct: -0.2,
+      planRules: PLANES.map((p) => ({ planCode: p, aplica: p === "PLATA", valorOverride: null })),
+    });
+    const input: QuoteInput = {
+      region: "AMBA",
+      categoria: "Vol",
+      procedencia: "Otros",
+      filial: "CABA",
+      miembros: [{ tipo: "Titular", rango: "36-40" }],
+      selectedPolicyIds: ["dto-mes-plata-debil", "dto-mes-plata-fuerte"],
+    };
+    const data = baseData([debil, fuerte], priceRows("36-40", AMBA_OBL_TITULAR_36_40));
+    const result = computeQuote(input, data);
+    // -20% (el fuerte), no -10% ni -30% (ambos sumados).
+    expect(result.planes[4].descuentoComercialPct).toBeCloseTo(-0.2, 5);
+  });
+
   it("IVA 10.5% se aplica en Voluntario", () => {
     const input: QuoteInput = {
       region: "AMBA",

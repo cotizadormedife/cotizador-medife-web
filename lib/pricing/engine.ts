@@ -2,6 +2,7 @@ import { PLANES } from "./types";
 import type { DiscountPolicy, Miembro, PlanBreakdown, PricingData, QuoteInput, QuoteResult, CuotaProyeccion } from "./types";
 import { esHijoElegibleAjuste, getMiembroKey, rangoEfectivo } from "./memberKey";
 import {
+  dedupeTacticosByPlan,
   findAjusteHijosPolicy,
   findDescuentoFilialPolicy,
   findSegmentoJovenPolicies,
@@ -135,7 +136,12 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
       isPolicyRelevant(p, ctx) &&
       isRequisitoCumplido(p, selectedSlugs)
   );
-  const selectedPolicies = requisitoOk.filter((p) => isExclusionOk(p, requisitoOk));
+  const exclusionOk = requisitoOk.filter((p) => isExclusionOk(p, requisitoOk));
+  // RF-M10: dos descuentos tácticos no pueden convivir para el mismo plan —
+  // se valida también acá (no solo en el formulario) para que no dependa
+  // solo del cliente.
+  const tacticoDeduped = dedupeTacticosByPlan(exclusionOk.filter((p) => p.grupo === "tactico"));
+  const selectedPolicies = exclusionOk.filter((p) => p.grupo !== "tactico").concat(tacticoDeduped);
   const gafPolicies = selectedPolicies.filter((p) => p.procedenciaGate === "GAF");
   const allBlanketPolicies = selectedPolicies.filter((p) => p.grupo !== "ajuste" && p.grupo !== "gaf");
   const mainBlanket = allBlanketPolicies.filter((p) => !p.concatenable);

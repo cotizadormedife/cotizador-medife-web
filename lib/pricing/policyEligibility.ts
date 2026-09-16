@@ -117,6 +117,45 @@ export function isExclusionOk(policy: DiscountPolicy, otrosSeleccionados: Discou
   return true;
 }
 
+// RF-M10: versión simétrica de isExclusionOk para un par de políticas —
+// usada al tildar un checkbox, para destildar en el momento cualquier otra
+// ya seleccionada que sea incompatible (en cualquiera de los dos sentidos:
+// "a" excluye a "b", o "b" excluye a "a"), en vez de dejar que el motor la
+// ignore en silencio al calcular.
+export function isCompatible(a: DiscountPolicy, b: DiscountPolicy): boolean {
+  if (a.id === b.id) return true;
+  if (isAutoPolicy(a) || isAutoPolicy(b)) return true; // las automáticas no compiten con nada
+  if (a.excluyeOtros || b.excluyeOtros) return false;
+  if (a.excluyeGrupo.includes(b.grupo)) return false;
+  if (b.excluyeGrupo.includes(a.grupo)) return false;
+  return true;
+}
+
+// RF-M10: dos descuentos tácticos no pueden convivir para el mismo plan —
+// si se superponen en al menos un plan, se muestra/aplica solo el de mayor
+// magnitud de descuento; el resto se descarta por completo (no solo para
+// ese plan puntual, la fila entera queda afuera).
+function magnitudPlan(policy: DiscountPolicy): number {
+  let max = 0;
+  for (const rule of policy.planRules) {
+    if (!rule.aplica) continue;
+    const v = Math.abs(rule.valorOverride ?? policy.valorPct);
+    if (v > max) max = v;
+  }
+  return max;
+}
+
+export function dedupeTacticosByPlan(tacticos: DiscountPolicy[]): DiscountPolicy[] {
+  const sorted = [...tacticos].sort((a, b) => magnitudPlan(b) - magnitudPlan(a));
+  const accepted: DiscountPolicy[] = [];
+  for (const p of sorted) {
+    const pPlanes = new Set(p.planRules.filter((r) => r.aplica).map((r) => r.planCode));
+    const colisiona = accepted.some((a) => a.planRules.some((r) => r.aplica && pPlanes.has(r.planCode)));
+    if (!colisiona) accepted.push(p);
+  }
+  return accepted;
+}
+
 // Elegibilidad de un usuario individual seleccionable: excluye las 4 categorías
 // "automáticas" (ajuste hijos, segmento joven, descuento filial) — esas
 // nunca se muestran como checkbox, se aplican solas.

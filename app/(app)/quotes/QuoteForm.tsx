@@ -3,7 +3,14 @@
 import { useMemo, useState, useTransition } from "react";
 import { runQuoteAction, type RunQuoteState } from "./actions";
 import { RANGOS_BY_TIPO, RANGOS_HIJO_INTERIOR } from "@/lib/pricing/memberKey";
-import { isAutoPolicy, isPolicyMemberEligible, isPolicyRelevant, isRequisitoCumplido } from "@/lib/pricing/policyEligibility";
+import {
+  dedupeTacticosByPlan,
+  isAutoPolicy,
+  isCompatible,
+  isPolicyMemberEligible,
+  isPolicyRelevant,
+  isRequisitoCumplido,
+} from "@/lib/pricing/policyEligibility";
 import type { DiscountPolicy, Miembro, TipoMiembro } from "@/lib/pricing/types";
 import OptionGroup from "./OptionGroup";
 import QuoteResults, { fmtPct } from "./QuoteResults";
@@ -169,14 +176,17 @@ export default function QuoteForm({
 
   const gaf = selectable.filter((p) => getSection(p) === "gaf");
   const estrategico = selectable.filter((p) => getSection(p) === "estrategico");
-  const tactico = selectable.filter((p) => getSection(p) === "tactico");
+  // RF-M10: dos descuentos tácticos no pueden convivir para el mismo plan —
+  // solo se muestra/deja elegir el de mayor descuento en ese solapamiento.
+  const tactico = dedupeTacticosByPlan(selectable.filter((p) => getSection(p) === "tactico"));
 
   // RF-M9 (fix): esto comparaba id.startsWith("opcion-N"), pero desde M8 el
   // id es un uuid opaco — esas exclusiones de UI quedaron muertas. Se
   // reescribe usando el slug de cada política (estable dentro de la misma
   // lista) en vez del id.
   function togglePolicy(id: string, checked: boolean) {
-    const slugOf = (x: string) => policies.find((p) => p.id === x)?.slug ?? "";
+    const policyOf = (x: string) => policies.find((p) => p.id === x);
+    const slugOf = (x: string) => policyOf(x)?.slug ?? "";
     setSelectedPolicyIds((prev) => {
       let next = checked ? [...prev, id] : prev.filter((x) => x !== id);
       const slug = slugOf(id);
@@ -190,6 +200,20 @@ export default function QuoteForm({
       if (checked && isUno23(id)) next = next.filter((x) => x === id || !isUno23(x));
       // RF-61: sin Opción 4 seleccionada, Opción 6 no es válida — se destilda sola.
       if (!next.some((x) => slugOf(x).startsWith("opcion-4"))) next = next.filter((x) => !slugOf(x).startsWith("opcion-6"));
+      // RF-M10: reglas de "no acumulable" leídas del Excel (excluyeOtros/
+      // excluyeGrupo) — al tildar una, se destilda en el momento cualquier
+      // otra ya elegida que sea incompatible con ella, en cualquiera de los
+      // dos sentidos (la nueva excluye a la vieja, o la vieja excluía a la
+      // nueva).
+      if (checked) {
+        const thisPolicy = policyOf(id);
+        if (thisPolicy) {
+          next = next.filter((x) => {
+            const other = policyOf(x);
+            return !other || isCompatible(thisPolicy, other);
+          });
+        }
+      }
       return next;
     });
   }
