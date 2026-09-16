@@ -111,6 +111,28 @@ export type CuotaProyeccion = {
   month: number;
   gafActivo: boolean;
   porPlan: Record<string, number>;
+  // Políticas de plazo fijo/escalonado (mainBlanket/concatBlanket) que empiezan
+  // a tener efecto recién a partir de este mes (ej. una concatenable que
+  // arranca cuando termina el plazo de la principal) — para anotarlo en la
+  // proyección de cuotas impresa ("A partir de cuota N: ...").
+  cambios: Array<{ nombre: string; valorPct: number; permanente: boolean; plazoMeses: number | null }>;
+};
+
+export type ActivePolicySummary = {
+  id: string;
+  nombre: string;
+  detalle: string | null;
+  valorPct: number;
+  automatica: boolean; // true = Ajuste Hijos/Segmento Joven/Descuento Filial (se aplican solas, no se listan como elegidas)
+  slug: string;
+  grupo: PolicyGrupo;
+  permanente: boolean;
+  plazoMeses: number | null;
+  concatenable: boolean;
+  schedule: ScheduleBlock[];
+  edadMaxTitularConyuge: number | null;
+  fuenteComentario: string | null;
+  planRules: PlanRule[];
 };
 
 export type QuoteResult = {
@@ -121,7 +143,7 @@ export type QuoteResult = {
     ajusteHijosPct: (number | null)[];
     segmentoJovenPct: (number | null)[];
   };
-  activePolicies: Array<{ id: string; nombre: string; detalle: string | null; valorPct: number }>;
+  activePolicies: ActivePolicySummary[];
   proyeccionCuotas: CuotaProyeccion[];
   recargoInfo: { activo: boolean; pct: number; detalle: string } | null;
 };

@@ -439,8 +439,9 @@ export default function QuoteForm({
               region: regions.find((r) => r.code === region)?.nombre ?? region,
               filial: filialesRegion.find((f) => f.code === filial)?.nombre ?? filial,
               categoria,
-              procedencia: procedencia === "comprobable" ? "Comprobable" : "Sin procedencia",
+              procedencia: procedencia === "comprobable" ? "Con procedencia comprobable" : "Sin procedencia comprobable",
               vigencia: vigenciaLabel,
+              miembros,
             }}
           />
         )}

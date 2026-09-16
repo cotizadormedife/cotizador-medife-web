@@ -226,7 +226,21 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
     return t;
   });
 
-  const proyeccionCuotas: CuotaProyeccion[] = CUOTAS_PROYECCION.map((month) => {
+  // RF-M11: para anotar en la proyección de cuotas impresa cuándo entra en
+  // vigencia una política de plazo fijo (ej. una concatenable que arranca
+  // cuando termina el plazo de la principal) — se compara, mes a mes, si
+  // cada política de mainBlanket/concatBlanket pasa de "sin efecto en ningún
+  // plan" a "con efecto en algún plan".
+  const blanketPolicies = [...mainBlanket, ...concatBlanket];
+  function factorAtMonthForPolicy(p: DiscountPolicy, pi: number, month: number): number {
+    if (mainBlanket.includes(p)) return planFactorAtMonth(p, pi, month);
+    const offsetMonth = month - mainPlazo;
+    if (offsetMonth < 1 || offsetMonth > (p.plazoMeses || 0)) return 0;
+    return planFactor(p, pi);
+  }
+  let prevActive = new Set<string>();
+
+  const proyeccionCuotas: CuotaProyeccion[] = CUOTAS_PROYECCION.map((month, monthIdx) => {
     const dtoMes = PLANES.map((_, pi) => {
       let t = 0;
       mainBlanket.forEach((p) => (t += planFactorAtMonth(p, pi, month)));
@@ -253,10 +267,22 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
     const nonUccGafMes = PLANES.map((_, pi) => (hayBlanketGlobalMes ? 0 : gafInteresRate[pi]));
     const finalMes = baseMes.map((p, pi) => Math.max(0, p * (1 + nonUccGafMes[pi])));
 
+    const activeNow = new Set(
+      blanketPolicies.filter((p) => PLANES.some((_, pi) => factorAtMonthForPolicy(p, pi, month) !== 0)).map((p) => p.id)
+    );
+    const cambios =
+      monthIdx === 0
+        ? []
+        : blanketPolicies
+            .filter((p) => activeNow.has(p.id) && !prevActive.has(p.id))
+            .map((p) => ({ nombre: p.nombre, valorPct: p.valorPct, permanente: p.permanente, plazoMeses: p.plazoMeses }));
+    prevActive = activeNow;
+
     return {
       month,
       gafActivo: !hayBlanketGlobalMes,
       porPlan: Object.fromEntries(PLANES.map((planCode, pi) => [planCode, finalMes[pi]])),
+      cambios,
     };
   });
 
@@ -274,12 +300,27 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
   };
 
   const activePolicies = [
-    ...(ajusteHijosPolicy ? [ajusteHijosPolicy] : []),
-    ...(segJoven25Policy ? [segJoven25Policy] : []),
-    ...(segJoven29Policy ? [segJoven29Policy] : []),
-    ...(descFilialPolicy ? [descFilialPolicy] : []),
-    ...selectedPolicies,
-  ].map((p) => ({ id: p.id, nombre: p.nombre, detalle: p.detalle, valorPct: p.valorPct }));
+    ...(ajusteHijosPolicy ? [{ p: ajusteHijosPolicy, automatica: true }] : []),
+    ...(segJoven25Policy ? [{ p: segJoven25Policy, automatica: true }] : []),
+    ...(segJoven29Policy ? [{ p: segJoven29Policy, automatica: true }] : []),
+    ...(descFilialPolicy ? [{ p: descFilialPolicy, automatica: true }] : []),
+    ...selectedPolicies.map((p) => ({ p, automatica: false })),
+  ].map(({ p, automatica }) => ({
+    id: p.id,
+    nombre: p.nombre,
+    detalle: p.detalle,
+    valorPct: p.valorPct,
+    automatica,
+    slug: p.slug,
+    grupo: p.grupo,
+    permanente: p.permanente,
+    plazoMeses: p.plazoMeses,
+    concatenable: p.concatenable,
+    schedule: p.schedule,
+    edadMaxTitularConyuge: p.edadMaxTitularConyuge,
+    fuenteComentario: p.fuenteComentario,
+    planRules: p.planRules,
+  }));
 
   return {
     priceListVersionId: data.priceListVersionId,

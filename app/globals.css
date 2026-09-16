@@ -227,6 +227,18 @@ a {
     font-size: 13px;
     font-weight: 600;
   }
+  .mono {
+    font-family: ui-monospace, "SFMono-Regular", "Courier New", Courier, monospace;
+  }
+  .plan-cards-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .cambio-row td {
+    background: var(--brand-orange-focus-bg);
+    color: var(--brand-orange);
+    font-weight: 700;
+    border-bottom: 1px solid var(--brand-orange);
+  }
   body {
     background: #fff;
   }
