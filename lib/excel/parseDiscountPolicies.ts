@@ -359,11 +359,15 @@ export async function parseDiscountPolicies(buffer: ArrayBuffer, knownFilialCode
         : { requiereSlugPrefix: null, excluyeOtros: false, excluyeGrupo: [] as PolicyGrupo[], edadMaxTitularConyuge: null };
 
     // "concatenable" en el motor significa "se aplica recién después de que
-    // termine el plazo de las políticas no concatenables" (Opción 5). Una
-    // política que EXIGE otra (requiereSlugPrefix, ej. Opción 6→4) se suma
-    // en simultáneo, no concatena después — ver migración 0016.
+    // termine el plazo de las políticas no concatenables" — tanto una
+    // política que EXIGE otra (requiereSlugPrefix, ej. Opción 6→4, texto
+    // "Concatenable/Combinable con la opción N") como una que se declara
+    // acumulable con un listado de opciones (ej. "Acumulable con opciones
+    // 1,2 y 3", Opción 5) arrancan recién cuando termina el plazo de la
+    // principal — a pedido de Diego, corrige la interpretación anterior
+    // (migración 0016) que hacía sumar Opción 6 en simultáneo con Opción 4.
     const concatenable =
-      !combinacion.requiereSlugPrefix && /acumulable con opciones?\s*[\d,\sy]+/i.test(comentarios);
+      !!combinacion.requiereSlugPrefix || /acumulable con opciones?\s*[\d,\sy]+/i.test(comentarios);
 
     const schedule = permanente ? [] : parseSchedule(detalle ?? "", valorPct);
     // Un descuento temporal de tasa plana por N meses no necesita cronograma

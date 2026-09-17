@@ -200,7 +200,7 @@ describe("parseDiscountPolicies", () => {
 
     const p6 = policies.find((p) => p.nombre === "Opción 6")!;
     expect(p6.requiereSlugPrefix).toBe("opcion-4");
-    expect(p6.concatenable).toBe(false); // se suma en simultáneo con Opción 4, no concatena después
+    expect(p6.concatenable).toBe(true); // arranca recién cuando termina el plazo de Opción 4
     expect(p6.edadMaxTitularConyuge).toBe(60);
     // "Exclusivo Débito con TC" no se valida (el formulario no pide método de
     // pago) — se importa sin gate, sin generar warning (comportamiento esperado).

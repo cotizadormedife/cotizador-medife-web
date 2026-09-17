@@ -331,7 +331,7 @@ describe("computeQuote", () => {
     expect(result.planes[4].descuentoComercialPct).toBe(-0.7);
   });
 
-  it("Opción 6 se suma a Opción 4 en simultáneo durante los mismos 12 meses (no concatenado después)", () => {
+  it("Opción 6 concatena después de Opción 4 (meses 1-12 Opción 4, meses 13-24 Opción 6) — no se suman", () => {
     const opcion4 = policy({
       id: "opcion-4-nac-Vol",
       nombre: "Opción 4",
@@ -342,9 +342,10 @@ describe("computeQuote", () => {
     const opcion6 = policy({
       id: "opcion-6-nac-Vol",
       nombre: "Opción 6",
-      valorPct: -0.15,
+      valorPct: -0.2,
       plazoMeses: 12,
-      concatenable: false,
+      concatenable: true,
+      requiereSlugPrefix: "opcion-4",
     });
     const input: QuoteInput = {
       region: "AMBA",
@@ -358,19 +359,20 @@ describe("computeQuote", () => {
     const data = baseData([opcion4, opcion6], priceRows("36-40", precios));
     const result = computeQuote(input, data);
 
-    // Precio "hoy" (tarjetas de plan): ambas políticas ya suman -30%.
-    expect(result.planes[4].descuentoComercialPct).toBeCloseTo(-0.3, 5);
+    // Precio "hoy" (tarjetas de plan): solo Opción 4, -15% (no se suman).
+    expect(result.planes[4].descuentoComercialPct).toBeCloseTo(-0.15, 5);
 
-    // Proyección: -30% en todos los meses 1 a 12 (simultáneo, no uno detrás del otro)...
-    const mes1 = result.proyeccionCuotas.find((c) => c.month === 1)!;
-    const mes12 = result.proyeccionCuotas.find((c) => c.month === 12)!;
     const sinDescuento = precios[4] * 1.105;
-    expect(mes1.porPlan.PLATA).toBeCloseTo(sinDescuento * 0.7, 0);
-    expect(mes12.porPlan.PLATA).toBeCloseTo(sinDescuento * 0.7, 0);
+    const porMes = (m: number) => result.proyeccionCuotas.find((c) => c.month === m)!.porPlan.PLATA;
 
-    // ...y ninguna se extiende sola después del mes 12 (las dos ya terminaron).
-    const mes13 = result.proyeccionCuotas.find((c) => c.month === 13)!;
-    expect(mes13.porPlan.PLATA).toBeCloseTo(sinDescuento, 0);
+    // Meses 1-12: Opción 4 sola (-15%).
+    expect(porMes(1)).toBeCloseTo(sinDescuento * 0.85, 0);
+    expect(porMes(12)).toBeCloseTo(sinDescuento * 0.85, 0);
+    // Meses 13-24: Opción 6 arranca sola, con su propio valor (-20%).
+    expect(porMes(13)).toBeCloseTo(sinDescuento * 0.8, 0);
+    expect(porMes(24)).toBeCloseTo(sinDescuento * 0.8, 0);
+    // Mes 25: Opción 6 también venció (12 meses desde el 13, hasta el 24).
+    expect(porMes(25)).toBeCloseTo(sinDescuento, 0);
   });
 
   it("un descuento escalonado (schedule) aplica el tramo correcto en cada mes de la proyección", () => {
