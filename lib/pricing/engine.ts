@@ -9,6 +9,7 @@ import {
   isExclusionOk,
   isPolicyRelevant,
   isRequisitoCumplido,
+  magnitudPlan,
 } from "./policyEligibility";
 
 const CUOTAS_PROYECCION = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 24, 25];
@@ -144,9 +145,30 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
   const selectedPolicies = exclusionOk.filter((p) => p.grupo !== "tactico").concat(tacticoDeduped);
   const gafPolicies = selectedPolicies.filter((p) => p.procedenciaGate === "GAF");
   const allBlanketPolicies = selectedPolicies.filter((p) => p.grupo !== "ajuste" && p.grupo !== "gaf");
-  const mainBlanket = allBlanketPolicies.filter((p) => !p.concatenable);
-  const concatBlanket = allBlanketPolicies.filter((p) => p.concatenable);
+  let mainBlanket = allBlanketPolicies.filter((p) => !p.concatenable);
+  let encadenables = allBlanketPolicies.filter((p) => p.concatenable).sort((a, b) => magnitudPlan(b) - magnitudPlan(a));
+  // RF-M12: si no hay ninguna política "principal" (no concatenable)
+  // seleccionada, la primera concatenable (por magnitud) pasa a actuar como
+  // principal desde la 1ª cuota — el resto queda encadenado detrás de ella.
+  // Antes, con solo concatenables seleccionadas, ninguna aplicaba en la 1ª
+  // cuota (esperaban a una "principal" que nunca llegaba).
+  if (mainBlanket.length === 0 && encadenables.length > 0) {
+    mainBlanket = [encadenables[0]];
+    encadenables = encadenables.slice(1);
+  }
   const mainPlazo = mainBlanket.reduce((mx, p) => Math.max(mx, p.plazoMeses || 0), 0);
+  // RF-M12: cadena de tramos para las concatenables restantes — cada una
+  // arranca al mes siguiente de que termina el plazo acumulado de las
+  // anteriores (principal + concatenables previas de la cadena), y no antes.
+  const cadenaTramos: Array<{ policy: DiscountPolicy; startMonth: number; endMonth: number }> = [];
+  {
+    let acumPlazo = mainPlazo;
+    for (const p of encadenables) {
+      const plazo = p.plazoMeses || 0;
+      cadenaTramos.push({ policy: p, startMonth: acumPlazo + 1, endMonth: acumPlazo + plazo });
+      acumPlazo += plazo;
+    }
+  }
 
   const totalDtoByPlan = PLANES.map((_, pi) => {
     let t = 0;
@@ -228,14 +250,14 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
 
   // RF-M11: para anotar en la proyección de cuotas impresa cuándo entra en
   // vigencia una política de plazo fijo (ej. una concatenable que arranca
-  // cuando termina el plazo de la principal) — se compara, mes a mes, si
-  // cada política de mainBlanket/concatBlanket pasa de "sin efecto en ningún
-  // plan" a "con efecto en algún plan".
-  const blanketPolicies = [...mainBlanket, ...concatBlanket];
+  // cuando termina el plazo de la anterior en su cadena) — se compara, mes a
+  // mes, si cada política de mainBlanket/cadenaTramos pasa de "sin efecto en
+  // ningún plan" a "con efecto en algún plan".
+  const blanketPolicies = [...mainBlanket, ...cadenaTramos.map((c) => c.policy)];
   function factorAtMonthForPolicy(p: DiscountPolicy, pi: number, month: number): number {
     if (mainBlanket.includes(p)) return planFactorAtMonth(p, pi, month);
-    const offsetMonth = month - mainPlazo;
-    if (offsetMonth < 1 || offsetMonth > (p.plazoMeses || 0)) return 0;
+    const tramo = cadenaTramos.find((c) => c.policy === p);
+    if (!tramo || month < tramo.startMonth || month > tramo.endMonth) return 0;
     return planFactor(p, pi);
   }
   let prevActive = new Set<string>();
@@ -244,12 +266,9 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
     const dtoMes = PLANES.map((_, pi) => {
       let t = 0;
       mainBlanket.forEach((p) => (t += planFactorAtMonth(p, pi, month)));
-      const offsetMonth = month - mainPlazo;
-      if (offsetMonth >= 1) {
-        concatBlanket.forEach((p) => {
-          if (offsetMonth <= (p.plazoMeses || 0)) t += planFactor(p, pi);
-        });
-      }
+      cadenaTramos.forEach(({ policy, startMonth, endMonth }) => {
+        if (month >= startMonth && month <= endMonth) t += planFactor(policy, pi);
+      });
       return Math.max(t, -0.7);
     });
     const precioMes = subtotalAjustado.map((sub, pi) => sub * (1 + dtoMes[pi]) + descFilialAmt[pi]);
@@ -261,9 +280,11 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
     const conUccMes = precioMes.map((p, pi) => p + uccMes[pi]);
     const baseMes = input.categoria === "Vol" ? conUccMes.map((p) => p * (1 + ivaRate)) : conUccMes.map((p) => p - aporteTotal);
     const anyMain = mainBlanket.some((p) => PLANES.some((_, qi) => planFactorAtMonth(p, qi, month) !== 0));
-    const adjMonth = month - mainPlazo;
-    const anyConcat = adjMonth >= 1 && concatBlanket.some((p) => adjMonth <= (p.plazoMeses || 0));
-    const hayBlanketGlobalMes = anyMain || anyConcat;
+    const anyCadena = cadenaTramos.some(
+      ({ policy, startMonth, endMonth }) =>
+        month >= startMonth && month <= endMonth && PLANES.some((_, qi) => planFactor(policy, qi) !== 0)
+    );
+    const hayBlanketGlobalMes = anyMain || anyCadena;
     const nonUccGafMes = PLANES.map((_, pi) => (hayBlanketGlobalMes ? 0 : gafInteresRate[pi]));
     const finalMes = baseMes.map((p, pi) => Math.max(0, p * (1 + nonUccGafMes[pi])));
 

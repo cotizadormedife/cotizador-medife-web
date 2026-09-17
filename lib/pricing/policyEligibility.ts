@@ -135,7 +135,7 @@ export function isCompatible(a: DiscountPolicy, b: DiscountPolicy): boolean {
 // si se superponen en al menos un plan, se muestra/aplica solo el de mayor
 // magnitud de descuento; el resto se descarta por completo (no solo para
 // ese plan puntual, la fila entera queda afuera).
-function magnitudPlan(policy: DiscountPolicy): number {
+export function magnitudPlan(policy: DiscountPolicy): number {
   let max = 0;
   for (const rule of policy.planRules) {
     if (!rule.aplica) continue;

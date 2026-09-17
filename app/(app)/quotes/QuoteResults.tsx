@@ -3,7 +3,7 @@
 import { Fragment, useState } from "react";
 import type { Miembro, QuoteResult } from "@/lib/pricing/types";
 import { PLANES, PLAN_LABELS } from "@/lib/pricing/types";
-import { cambioLabel, composicionLabel, condicionLabel, cronogramaLabel } from "./printLabels";
+import { cambioLabel, composicionLabel, condicionLabel, cronogramaLabel, origenLabel } from "./printLabels";
 
 export const fmtMoney = (n: number) =>
   n.toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
@@ -89,6 +89,34 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
           }}
         >
           📌 Cotizador {meta.vigencia}
+        </div>
+      )}
+
+      {meta?.miembros && meta.miembros.length > 0 && (
+        <div className="print-only-block" style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.3, margin: "0 0 6px" }}>GRUPO FAMILIAR</div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr>
+                <th style={{ ...td, textAlign: "left", borderBottom: "2px solid var(--border-default)" }}>Tipo</th>
+                <th style={{ ...td, textAlign: "left", borderBottom: "2px solid var(--border-default)" }}>Rango de edad</th>
+                <th style={{ ...td, textAlign: "left", borderBottom: "2px solid var(--border-default)" }}>Sueldo bruto</th>
+                <th style={{ ...td, textAlign: "left", borderBottom: "2px solid var(--border-default)" }}>Origen del aporte</th>
+              </tr>
+            </thead>
+            <tbody>
+              {meta.miembros.map((m, i) => (
+                <tr key={i}>
+                  <td style={{ ...td, textAlign: "left" }}>{m.tipo}</td>
+                  <td style={{ ...td, textAlign: "left" }}>{m.rango}</td>
+                  <td className="mono" style={{ ...td, textAlign: "left" }}>
+                    {meta.categoria === "Obl" && m.sueldo ? fmtMoney(m.sueldo) : "—"}
+                  </td>
+                  <td style={{ ...td, textAlign: "left" }}>{meta.categoria === "Obl" ? origenLabel(m) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

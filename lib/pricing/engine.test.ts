@@ -452,6 +452,90 @@ describe("computeQuote", () => {
     expect(porMes(24)).toBeCloseTo(sinDescuento, 0);
   });
 
+  it("RF-M12: dos concatenables sin ninguna principal — la de mayor magnitud arranca en la 1ª cuota, la otra recién después", () => {
+    const fuerte = policy({
+      id: "concat-fuerte",
+      nombre: "Concat Fuerte",
+      valorPct: -0.3,
+      plazoMeses: 3,
+      concatenable: true,
+    });
+    const debil = policy({
+      id: "concat-debil",
+      nombre: "Concat Débil",
+      valorPct: -0.1,
+      plazoMeses: 6,
+      concatenable: true,
+    });
+    const input: QuoteInput = {
+      region: "AMBA",
+      categoria: "Vol",
+      procedencia: "Otros",
+      filial: "CABA",
+      miembros: [{ tipo: "Titular", rango: "36-40" }],
+      selectedPolicyIds: ["concat-fuerte", "concat-debil"],
+    };
+    const precios = [237746, 178824, 210381, 247525, 306521, 430356, 559463];
+    const data = baseData([fuerte, debil], priceRows("36-40", precios));
+    const result = computeQuote(input, data);
+    const sinDescuento = precios[4] * 1.105;
+    const porMes = (m: number) => result.proyeccionCuotas.find((c) => c.month === m)!.porPlan.PLATA;
+
+    // 1ª cuota: solo la de mayor magnitud (Fuerte), no la suma de ambas.
+    expect(result.planes[4].descuentoComercialPct).toBeCloseTo(-0.3, 5);
+    expect(porMes(1)).toBeCloseTo(sinDescuento * 0.7, 0);
+    expect(porMes(3)).toBeCloseTo(sinDescuento * 0.7, 0);
+    // Meses 4-9: Fuerte ya venció (3 meses), Débil arranca y dura sus 6 meses.
+    expect(porMes(4)).toBeCloseTo(sinDescuento * 0.9, 0);
+    expect(porMes(9)).toBeCloseTo(sinDescuento * 0.9, 0);
+    // Mes 10: Débil también venció (arrancó en el 4, dura 6 → hasta el 9).
+    expect(porMes(10)).toBeCloseTo(sinDescuento, 0);
+  });
+
+  it("RF-M12: tres concatenables encadenadas en cascada, sin principal", () => {
+    const a = policy({ id: "cad-a", nombre: "Cadena A", valorPct: -0.3, plazoMeses: 2, concatenable: true });
+    const b = policy({ id: "cad-b", nombre: "Cadena B", valorPct: -0.2, plazoMeses: 3, concatenable: true });
+    const c = policy({ id: "cad-c", nombre: "Cadena C", valorPct: -0.1, plazoMeses: 4, concatenable: true });
+    const input: QuoteInput = {
+      region: "AMBA",
+      categoria: "Vol",
+      procedencia: "Otros",
+      filial: "CABA",
+      miembros: [{ tipo: "Titular", rango: "36-40" }],
+      selectedPolicyIds: ["cad-a", "cad-b", "cad-c"],
+    };
+    const precios = [237746, 178824, 210381, 247525, 306521, 430356, 559463];
+    const data = baseData([a, b, c], priceRows("36-40", precios));
+    const result = computeQuote(input, data);
+    const sinDescuento = precios[4] * 1.105;
+    const porMes = (m: number) => result.proyeccionCuotas.find((c) => c.month === m)!.porPlan.PLATA;
+
+    // A (mayor magnitud): meses 1-2. B: meses 3-5. C: meses 6-9. Después, sin descuento.
+    expect(porMes(1)).toBeCloseTo(sinDescuento * 0.7, 0);
+    expect(porMes(3)).toBeCloseTo(sinDescuento * 0.8, 0);
+    expect(porMes(5)).toBeCloseTo(sinDescuento * 0.8, 0);
+    expect(porMes(6)).toBeCloseTo(sinDescuento * 0.9, 0);
+    expect(porMes(9)).toBeCloseTo(sinDescuento * 0.9, 0);
+    expect(porMes(10)).toBeCloseTo(sinDescuento, 0);
+  });
+
+  it("Por default (sin acumulable/concatenable/exclusión explícita) dos descuentos se suman en la 1ª cuota", () => {
+    const uno = policy({ id: "libre-uno", nombre: "Libre Uno", valorPct: -0.1 });
+    const dos = policy({ id: "libre-dos", nombre: "Libre Dos", valorPct: -0.15 });
+    const input: QuoteInput = {
+      region: "AMBA",
+      categoria: "Vol",
+      procedencia: "Otros",
+      filial: "CABA",
+      miembros: [{ tipo: "Titular", rango: "36-40" }],
+      selectedPolicyIds: ["libre-uno", "libre-dos"],
+    };
+    const precios = [237746, 178824, 210381, 247525, 306521, 430356, 559463];
+    const data = baseData([uno, dos], priceRows("36-40", precios));
+    const result = computeQuote(input, data);
+    expect(result.planes[4].descuentoComercialPct).toBeCloseTo(-0.25, 5);
+  });
+
   it("RF-M10: dos descuentos tácticos que compiten por el mismo plan — solo aplica el de mayor descuento", () => {
     const debil = policy({
       id: "dto-mes-plata-debil",

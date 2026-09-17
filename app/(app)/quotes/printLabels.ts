@@ -47,4 +47,13 @@ export function cambioLabel(cambio: { nombre: string; valorPct: number; permanen
   return `A partir de cuota ${month}: ${cambio.nombre} ${fmtPctAbs(cambio.valorPct)} sobre valor final (${plazo})`;
 }
 
+// Origen del aporte de un integrante, para el detalle del grupo familiar del
+// PDF (solo aplica a Obligatorio — en Voluntario no se pide sueldo).
+export function origenLabel(m: Miembro): string {
+  if (m.obraSocial === "MONOTRIBUTO") return `Monotributo (Cat. ${m.monotributoCat ?? "—"})`;
+  if (m.obraSocial === "OBRAS SOCIALES") return "Obra Social";
+  if (m.obraSocial === "Medife") return "Medifé";
+  return "—";
+}
+
 export { fmtPctAbs };
