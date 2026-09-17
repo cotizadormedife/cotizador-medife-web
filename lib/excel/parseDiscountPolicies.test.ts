@@ -245,6 +245,20 @@ describe("parseDiscountPolicies", () => {
     expect(policies[1].region).toBe("SurExt");
   });
 
+  it("GAF: también respeta las reglas de combinación de Comentarios (no solo Estratégico/Táctico)", async () => {
+    const gafNoAcumulable: Row = { ...gaf, descripcion: "GAF EXCLUSIVO", comentarios: "No acumulable con otros descuentos" };
+    const gafConcatenable: Row = { ...gafSur, descripcion: "GAF CONCATENABLE", comentarios: "Concatenable con la opción 4" };
+    const buf = await buildWorkbook([gafNoAcumulable, gafConcatenable]);
+    const { policies } = await parseDiscountPolicies(buf);
+
+    const p1 = policies.find((p) => p.nombre === "GAF EXCLUSIVO")!;
+    expect(p1.excluyeOtros).toBe(true);
+
+    const p2 = policies.find((p) => p.nombre === "GAF CONCATENABLE")!;
+    expect(p2.requiereSlugPrefix).toBe("opcion-4");
+    expect(p2.concatenable).toBe(true);
+  });
+
   it("Dto Táctico con exclusión de grupo Estratégico", async () => {
     const buf = await buildWorkbook([dtoIndie]);
     const { policies } = await parseDiscountPolicies(buf);

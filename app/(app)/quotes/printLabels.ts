@@ -48,12 +48,15 @@ export function cambioLabel(cambio: { nombre: string; valorPct: number; permanen
 }
 
 // Origen del aporte de un integrante, para el detalle del grupo familiar del
-// PDF (solo aplica a Obligatorio — en Voluntario no se pide sueldo).
+// PDF (solo aplica a Obligatorio — en Voluntario no se pide sueldo). El
+// combo del formulario (QuoteForm.tsx) muestra "Medifé" seleccionado por
+// default sin que el usuario lo toque (value={m.obraSocial ?? "Medife"}),
+// así que acá hay que tratar el campo vacío igual — si no, se mostraba "—"
+// aunque el formulario ya mostraba "Medifé" elegido.
 export function origenLabel(m: Miembro): string {
   if (m.obraSocial === "MONOTRIBUTO") return `Monotributo (Cat. ${m.monotributoCat ?? "—"})`;
   if (m.obraSocial === "OBRAS SOCIALES") return "Obra Social";
-  if (m.obraSocial === "Medife") return "Medifé";
-  return "—";
+  return "Medifé";
 }
 
 export { fmtPctAbs };

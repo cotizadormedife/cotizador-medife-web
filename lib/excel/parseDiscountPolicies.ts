@@ -353,8 +353,12 @@ export async function parseDiscountPolicies(buffer: ArrayBuffer, knownFilialCode
     const detalle = norm(cellText(row.getCell(COL_DETALLE))) || null;
     const comentarios = norm(cellText(row.getCell(COL_COMENTARIOS)));
 
+    // A pedido de Diego: las reglas de combinación de "Comentarios" (RF-75)
+    // también se leen para las filas GAF, no solo Estratégico/Táctico — un
+    // GAF puede traer la misma directiva ("Concatenable/Combinable con la
+    // opción N", "No acumulable con...") y hay que respetarla igual.
     const combinacion =
-      grupo === "estrategico" || grupo === "tactico"
+      grupo === "estrategico" || grupo === "tactico" || grupo === "gaf"
         ? parseComentarios(comentarios, warnings, descripcion)
         : { requiereSlugPrefix: null, excluyeOtros: false, excluyeGrupo: [] as PolicyGrupo[], edadMaxTitularConyuge: null };
 
