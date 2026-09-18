@@ -208,7 +208,9 @@ describe("parseDiscountPolicies", () => {
     expect(p4.schedule).toEqual([{ seq: 1, valorPct: -0.2, months: 12 }]);
 
     const p5 = policies.find((p) => p.nombre === "Opción 5")!;
-    expect(p5.concatenable).toBe(true);
+    // "Acumulable con opciones 1,2 y 3": se suma en simultáneo con lo demás,
+    // no espera a que termine el plazo de otra (a diferencia de Opción 6).
+    expect(p5.concatenable).toBe(false);
     expect(p5.requiereSlugPrefix).toBeNull();
 
     const p6 = policies.find((p) => p.nombre === "Opción 6")!;

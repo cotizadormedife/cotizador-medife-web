@@ -411,7 +411,7 @@ describe("computeQuote", () => {
     expect(porMes(8)).toBeCloseTo(sinDescuento, 0);
   });
 
-  it("Opción 5 (concatenable) arranca recién el mes siguiente a que vence Opción 1/2/3, no en simultáneo", () => {
+  it("una política concatenable (que exige otra, ej. Opción 6→4) arranca recién el mes siguiente a que vence la principal, no en simultáneo", () => {
     const opcion2Like = policy({
       id: "opcion-2-nac-Vol",
       nombre: "Opción 2",
@@ -423,12 +423,13 @@ describe("computeQuote", () => {
         { seq: 2, valorPct: -0.1, months: 6 },
       ],
     });
-    const opcion5Like = policy({
-      id: "opcion-5-nac-Vol",
-      nombre: "Opción 5",
+    const dependienteLike = policy({
+      id: "dependiente-nac-Vol",
+      nombre: "Dependiente",
       valorPct: -0.05,
       plazoMeses: 6,
       concatenable: true,
+      requiereSlugPrefix: "opcion-2",
     });
     const input: QuoteInput = {
       region: "AMBA",
@@ -436,22 +437,62 @@ describe("computeQuote", () => {
       procedencia: "comprobable",
       filial: "CABA",
       miembros: [{ tipo: "Titular", rango: "36-40" }],
-      selectedPolicyIds: ["opcion-2-nac-Vol", "opcion-5-nac-Vol"],
+      selectedPolicyIds: ["opcion-2-nac-Vol", "dependiente-nac-Vol"],
     };
     const precios = [237746, 178824, 210381, 247525, 306521, 430356, 559463];
-    const data = baseData([opcion2Like, opcion5Like], priceRows("36-40", precios));
+    const data = baseData([opcion2Like, dependienteLike], priceRows("36-40", precios));
     const result = computeQuote(input, data);
     const sinDescuento = precios[4] * 1.105;
     const porMes = (m: number) => result.proyeccionCuotas.find((c) => c.month === m)!.porPlan.PLATA;
 
     expect(porMes(3)).toBeCloseTo(sinDescuento * 0.7, 0);
     expect(porMes(9)).toBeCloseTo(sinDescuento * 0.9, 0);
-    // Opción 5 no se suma durante Opción 2 — recién arranca en el mes 10.
+    // La dependiente no se suma durante Opción 2 — recién arranca en el mes 10.
     expect(porMes(9)).not.toBeCloseTo(sinDescuento * 0.85, 0);
     expect(porMes(10)).toBeCloseTo(sinDescuento * 0.95, 0);
     expect(porMes(13)).toBeCloseTo(sinDescuento * 0.95, 0);
-    // Mes 24 (única cuota proyectada después del 13): Opción 5 ya venció (6 meses desde el 10).
+    // Mes 24 (única cuota proyectada después del 13): la dependiente ya venció (6 meses desde el 10).
     expect(porMes(24)).toBeCloseTo(sinDescuento, 0);
+  });
+
+  it("Opción 5 ('Acumulable con opciones 1,2 y 3') se suma en simultáneo con Opción 3, no espera a que termine su plazo", () => {
+    const opcion3Like = policy({
+      id: "opcion-3-nac-Obl",
+      nombre: "Opción 3",
+      valorPct: -0.2,
+      plazoMeses: 11,
+      concatenable: false,
+    });
+    const opcion5Like = policy({
+      id: "opcion-5-nac-Obl",
+      nombre: "Opción 5",
+      valorPct: -0.05,
+      plazoMeses: 6,
+      concatenable: false,
+    });
+    const input: QuoteInput = {
+      region: "AMBA",
+      categoria: "Obl",
+      procedencia: "comprobable",
+      filial: "CABA",
+      miembros: [{ tipo: "Titular", rango: "36-40" }],
+      selectedPolicyIds: ["opcion-3-nac-Obl", "opcion-5-nac-Obl"],
+    };
+    const data = baseData([opcion3Like, opcion5Like], priceRows("36-40", AMBA_OBL_TITULAR_36_40));
+    const result = computeQuote(input, data);
+    const pi = 4; // PLATA
+
+    // 1ª cuota: se suman ambas (-20% + -5% = -25%), no solo Opción 3.
+    expect(result.planes[pi].descuentoComercialPct).toBeCloseTo(-0.25, 5);
+
+    const porMes = (m: number) => result.proyeccionCuotas.find((c) => c.month === m)!.porPlan.PLATA;
+    const base = AMBA_OBL_TITULAR_36_40[pi];
+    // Meses 1-6: ambas activas (-25%).
+    expect(porMes(1)).toBeCloseTo(base * 0.75, 0);
+    // Meses 7-11: Opción 5 ya venció (6 meses), sigue solo Opción 3 (-20%).
+    expect(porMes(7)).toBeCloseTo(base * 0.8, 0);
+    // Mes 12 en adelante: Opción 3 también venció (11 meses) — precio de lista.
+    expect(porMes(13)).toBeCloseTo(base, 0);
   });
 
   it("RF-M12: dos concatenables sin ninguna principal — la de mayor magnitud arranca en la 1ª cuota, la otra recién después", () => {

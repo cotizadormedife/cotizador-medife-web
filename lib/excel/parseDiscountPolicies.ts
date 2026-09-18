@@ -240,7 +240,11 @@ function parseComentarios(
     result.requiereSlugPrefix = `opcion-${n}`;
     matchedAlgo = true;
   } else if (/acumulable con opciones?\s*[\d,\sy]+/i.test(text)) {
-    matchedAlgo = true; // "Acumulable con opciones 1,2 y 3" (Opción 5): ya concatenable por default, sin requisito.
+    // "Acumulable con opciones 1,2 y 3" (Opción 5): confirma el comportamiento
+    // por default (se suma en simultáneo con lo elegido de esa lista) — a
+    // diferencia de "Concatenable/Combinable con la opción N" (arriba), acá
+    // NO hay que esperar a que termine el plazo de otra. Sin flag adicional.
+    matchedAlgo = true;
   }
   const edadMatch = text.match(/hasta\s*(\d+)\s*años/i);
   if (edadMatch && /titular|c[oó]nyuge|\bgf\b|grupo familiar/i.test(text)) {
@@ -388,15 +392,22 @@ export async function parseDiscountPolicies(
         : { requiereSlugPrefix: null, excluyeOtros: false, excluyeGrupo: [] as PolicyGrupo[], edadMaxTitularConyuge: null };
 
     // "concatenable" en el motor significa "se aplica recién después de que
-    // termine el plazo de las políticas no concatenables" — tanto una
-    // política que EXIGE otra (requiereSlugPrefix, ej. Opción 6→4, texto
-    // "Concatenable/Combinable con la opción N") como una que se declara
-    // acumulable con un listado de opciones (ej. "Acumulable con opciones
-    // 1,2 y 3", Opción 5) arrancan recién cuando termina el plazo de la
-    // principal — a pedido de Diego, corrige la interpretación anterior
-    // (migración 0016) que hacía sumar Opción 6 en simultáneo con Opción 4.
-    const concatenable =
-      !!combinacion.requiereSlugPrefix || /acumulable con opciones?\s*[\d,\sy]+/i.test(comentarios);
+    // termine el plazo de las políticas no concatenables" — aplica solo a
+    // una política que EXIGE otra puntual (requiereSlugPrefix, ej. Opción
+    // 6→4, texto "Concatenable/Combinable con la opción N"; a pedido de
+    // Diego, corrige la interpretación anterior de la migración 0016 que
+    // hacía sumar Opción 6 en simultáneo con Opción 4).
+    //
+    // "Acumulable con opciones 1,2 y 3" (Opción 5) es un caso distinto, pese
+    // al nombre parecido: no exige ninguna otra puntual ni espera a que
+    // termine el plazo de nada — se suma en simultáneo con lo que ya esté
+    // seleccionado de esa lista, como cualquier acumulable por default. Se
+    // había tratado como concatenable acá (confundiéndolo con el caso de
+    // Opción 6) y Diego confirmó que está mal: con Opción 3 (-20%, 11 meses)
+    // + Opción 5 (-5%, 6 meses) la 1ª cuota debe mostrar -25% (la suma), no
+    // solo el -20% de Opción 3 esperando a que termine para recién ahí sumar
+    // el -5% de Opción 5.
+    const concatenable = !!combinacion.requiereSlugPrefix;
 
     const schedule = permanente ? [] : parseSchedule(detalle ?? "", valorPct);
     // Un descuento temporal de tasa plana por N meses no necesita cronograma
