@@ -1,5 +1,6 @@
-import { PLANES } from "./types";
+import { PLANES, PLAN_LABELS } from "./types";
 import type { DiscountPolicy, Miembro, PlanBreakdown, PricingData, QuoteInput, QuoteResult, CuotaProyeccion } from "./types";
+import { matchesPlanName } from "./planMatch";
 import { esHijoElegibleAjuste, getMiembroKey, rangoEfectivo } from "./memberKey";
 import {
   dedupeTacticosByPlan,
@@ -14,35 +15,11 @@ import {
 
 const CUOTAS_PROYECCION = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 24, 25];
 
-function planFactor(policy: DiscountPolicy | null | undefined, planIdx: number): number {
-  if (!policy) return 0;
-  const rule = policy.planRules.find((r) => r.planCode === PLANES[planIdx]);
-  if (!rule || !rule.aplica) return 0;
-  return rule.valorOverride ?? policy.valorPct;
-}
-
-function planFactorAtMonth(policy: DiscountPolicy, planIdx: number, month: number): number {
-  const base = planFactor(policy, planIdx);
-  if (!base) return 0;
-  if (policy.permanente) return base;
-  if (policy.schedule.length > 1) {
-    let acc = 0;
-    for (const step of policy.schedule) {
-      acc += step.months;
-      if (month <= acc) return step.valorPct;
-    }
-    return 0;
-  }
-  if (policy.plazoMeses != null) return month <= policy.plazoMeses ? base : 0;
-  return base;
-}
-
-function priceLookup(data: PricingData, ageBracketCode: string): number[] {
-  const row = PLANES.map((planCode) => {
+function priceLookup(data: PricingData, planCodes: string[], ageBracketCode: string): number[] {
+  return planCodes.map((planCode) => {
     const cell = data.prices.find((p) => p.ageBracketCode === ageBracketCode && p.planCode === planCode);
     return cell?.monto ?? 0;
   });
-  return row;
 }
 
 export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult {
@@ -55,12 +32,41 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
     miembros: input.miembros,
   };
 
+  // M13: los planes de esta lista (código + etiqueta), en el orden real del
+  // Excel ("Info" -> "Producto") — si la versión no trae planes propios
+  // (tests existentes, principalmente), cae al set estático de siempre.
+  const planList = data.planes && data.planes.length > 0 ? data.planes : PLANES.map((code) => ({ code, nombre: PLAN_LABELS[code] ?? code, sortOrder: 0 }));
+  const PLAN_CODES = planList.map((p) => p.code);
+
+  function planFactor(policy: DiscountPolicy | null | undefined, planIdx: number): number {
+    if (!policy) return 0;
+    const rule = policy.planRules.find((r) => r.planCode === PLAN_CODES[planIdx]);
+    if (!rule || !rule.aplica) return 0;
+    return rule.valorOverride ?? policy.valorPct;
+  }
+
+  function planFactorAtMonth(policy: DiscountPolicy, planIdx: number, month: number): number {
+    const base = planFactor(policy, planIdx);
+    if (!base) return 0;
+    if (policy.permanente) return base;
+    if (policy.schedule.length > 1) {
+      let acc = 0;
+      for (const step of policy.schedule) {
+        acc += step.months;
+        if (month <= acc) return step.valorPct;
+      }
+      return 0;
+    }
+    if (policy.plazoMeses != null) return month <= policy.plazoMeses ? base : 0;
+    return base;
+  }
+
   // 1. Precio base por integrante
   const memberPrices = input.miembros.map((m) => {
     const key = getMiembroKey(m.tipo, m.rango || "");
-    return priceLookup(data, key);
+    return priceLookup(data, PLAN_CODES, key);
   });
-  const subtotales = PLANES.map((_, pi) => memberPrices.reduce((s, mp) => s + mp[pi], 0));
+  const subtotales = PLAN_CODES.map((_, pi) => memberPrices.reduce((s, mp) => s + mp[pi], 0));
 
   // 2. Recargo geográfico — informativo, ya incluido en la lista de precios
   const filialesPatagonia = ["Comahue", "Patagonia Norte", "Patagonia Sur"];
@@ -80,7 +86,7 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
   const { h25: segJoven25Policy, h29: segJoven29Policy } = findSegmentoJovenPolicies(data.policies, ctx);
   const descFilialPolicy = findDescuentoFilialPolicy(data.policies, ctx);
 
-  const hijoPesosAmt = PLANES.map((_, pi) => {
+  const hijoPesosAmt = PLAN_CODES.map((_, pi) => {
     const factor = planFactor(ajusteHijosPolicy, pi);
     if (!factor) return 0;
     let sum = 0;
@@ -91,7 +97,7 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
   });
   const ajusteHijosAmt = hijoPesosAmt; // reproyección a % de grupo = mismo valor en $
 
-  const segJovenPesosAmt = PLANES.map((_, pi) => {
+  const segJovenPesosAmt = PLAN_CODES.map((_, pi) => {
     let sum = 0;
     const f25 = planFactor(segJoven25Policy, pi);
     if (f25) {
@@ -113,12 +119,13 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
   const segmentoJovenAmt = segJovenPesosAmt;
 
   // 4. Dto Nom = subtotal + ajuste hijos + segmento joven
-  const dtoNomSinFilial = PLANES.map((_, pi) => subtotales[pi] + ajusteHijosAmt[pi] + segmentoJovenAmt[pi]);
+  const dtoNomSinFilial = PLAN_CODES.map((_, pi) => subtotales[pi] + ajusteHijosAmt[pi] + segmentoJovenAmt[pi]);
   const subtotalAjustado = dtoNomSinFilial;
 
   // 5. Descuento filial (sobre dtoNom)
-  const descFilialPct = planFactor(descFilialPolicy, 4); // referencia (PLATA) para mostrar en UI
-  const descFilialAmt = PLANES.map((_, pi) => {
+  const plataIdxRef = Math.max(0, planList.findIndex((p) => matchesPlanName(p.nombre, "PLATA")));
+  const descFilialPct = planFactor(descFilialPolicy, plataIdxRef); // referencia (PLATA) para mostrar en UI
+  const descFilialAmt = PLAN_CODES.map((_, pi) => {
     const f = planFactor(descFilialPolicy, pi);
     return f ? dtoNomSinFilial[pi] * f : 0;
   });
@@ -170,7 +177,7 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
     }
   }
 
-  const totalDtoByPlan = PLANES.map((_, pi) => {
+  const totalDtoByPlan = PLAN_CODES.map((_, pi) => {
     let t = 0;
     mainBlanket.forEach((p) => (t += planFactor(p, pi)));
     return Math.max(t, -0.7);
@@ -180,7 +187,7 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
   // 7. UCC — monto fijo sobre subtotalAjustado (misma base que el descuento comercial)
   const uccPolicies = gafPolicies.filter((p) => p.tipo === "ucc");
   const nonUccGafPolicies = gafPolicies.filter((p) => p.tipo !== "ucc");
-  const uccAmtByPlan = PLANES.map((_, pi) => {
+  const uccAmtByPlan = PLAN_CODES.map((_, pi) => {
     let t = 0;
     uccPolicies.forEach((p) => (t += planFactor(p, pi)));
     return subtotalAjustado[pi] * t;
@@ -207,8 +214,8 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
     input.categoria === "Vol" ? precioConUCC.map((p) => p * (1 + ivaRate)) : precioConUCC.map((p) => p - aporteTotal);
 
   // 9. GAF interés general — solo si NO hay ningún descuento comercial activo en ningún plan
-  const hayBlanketGlobal = mainBlanket.some((p) => PLANES.some((_, qi) => planFactor(p, qi) !== 0));
-  const totalNonUccGafByPlan = PLANES.map((_, pi) => {
+  const hayBlanketGlobal = mainBlanket.some((p) => PLAN_CODES.some((_, qi) => planFactor(p, qi) !== 0));
+  const totalNonUccGafByPlan = PLAN_CODES.map((_, pi) => {
     if (hayBlanketGlobal) return 0;
     let t = 0;
     nonUccGafPolicies.forEach((p) => (t += planFactor(p, pi)));
@@ -217,8 +224,9 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
   const final = precioBase.map((p, pi) => Math.max(0, p * (1 + totalNonUccGafByPlan[pi])));
 
   // 10. Desglose por plan
-  const planes: PlanBreakdown[] = PLANES.map((planCode, pi) => ({
+  const planes: PlanBreakdown[] = planList.map(({ code: planCode, nombre }, pi) => ({
     planCode,
+    nombre,
     subtotal: subtotales[pi],
     ajusteHijos: ajusteHijosAmt[pi],
     segmentoJoven: segmentoJovenAmt[pi],
@@ -242,7 +250,7 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
   // cualquier región) además de la seleccionada, el interés general de la
   // proyección terminaba sumando un descuento GAF extra que el precio de
   // "hoy" (nonUccGafPolicies, sección 9) correctamente no aplicaba.
-  const gafInteresRate = PLANES.map((_, pi) => {
+  const gafInteresRate = PLAN_CODES.map((_, pi) => {
     let t = 0;
     nonUccGafPolicies.forEach((p) => (t += planFactor(p, pi)));
     return t;
@@ -263,7 +271,7 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
   let prevActive = new Set<string>();
 
   const proyeccionCuotas: CuotaProyeccion[] = CUOTAS_PROYECCION.map((month, monthIdx) => {
-    const dtoMes = PLANES.map((_, pi) => {
+    const dtoMes = PLAN_CODES.map((_, pi) => {
       let t = 0;
       mainBlanket.forEach((p) => (t += planFactorAtMonth(p, pi, month)));
       cadenaTramos.forEach(({ policy, startMonth, endMonth }) => {
@@ -272,24 +280,24 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
       return Math.max(t, -0.7);
     });
     const precioMes = subtotalAjustado.map((sub, pi) => sub * (1 + dtoMes[pi]) + descFilialAmt[pi]);
-    const uccMes = PLANES.map((_, pi) => {
+    const uccMes = PLAN_CODES.map((_, pi) => {
       let t = 0;
       uccPolicies.forEach((p) => (t += planFactor(p, pi)));
       return subtotalAjustado[pi] * t;
     });
     const conUccMes = precioMes.map((p, pi) => p + uccMes[pi]);
     const baseMes = input.categoria === "Vol" ? conUccMes.map((p) => p * (1 + ivaRate)) : conUccMes.map((p) => p - aporteTotal);
-    const anyMain = mainBlanket.some((p) => PLANES.some((_, qi) => planFactorAtMonth(p, qi, month) !== 0));
+    const anyMain = mainBlanket.some((p) => PLAN_CODES.some((_, qi) => planFactorAtMonth(p, qi, month) !== 0));
     const anyCadena = cadenaTramos.some(
       ({ policy, startMonth, endMonth }) =>
-        month >= startMonth && month <= endMonth && PLANES.some((_, qi) => planFactor(policy, qi) !== 0)
+        month >= startMonth && month <= endMonth && PLAN_CODES.some((_, qi) => planFactor(policy, qi) !== 0)
     );
     const hayBlanketGlobalMes = anyMain || anyCadena;
-    const nonUccGafMes = PLANES.map((_, pi) => (hayBlanketGlobalMes ? 0 : gafInteresRate[pi]));
+    const nonUccGafMes = PLAN_CODES.map((_, pi) => (hayBlanketGlobalMes ? 0 : gafInteresRate[pi]));
     const finalMes = baseMes.map((p, pi) => Math.max(0, p * (1 + nonUccGafMes[pi])));
 
     const activeNow = new Set(
-      blanketPolicies.filter((p) => PLANES.some((_, pi) => factorAtMonthForPolicy(p, pi, month) !== 0)).map((p) => p.id)
+      blanketPolicies.filter((p) => PLAN_CODES.some((_, pi) => factorAtMonthForPolicy(p, pi, month) !== 0)).map((p) => p.id)
     );
     const cambios =
       monthIdx === 0
@@ -302,19 +310,19 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
     return {
       month,
       gafActivo: !hayBlanketGlobalMes,
-      porPlan: Object.fromEntries(PLANES.map((planCode, pi) => [planCode, finalMes[pi]])),
+      porPlan: Object.fromEntries(PLAN_CODES.map((planCode, pi) => [planCode, finalMes[pi]])),
       cambios,
     };
   });
 
   // Uso interno: % equivalente por plan para Ajuste Hijos / Segmento Joven,
   // para cargar en el sistema de Medife sobre el total del grupo familiar.
-  const ajusteHijosAplica = PLANES.map((_, pi) => planFactor(ajusteHijosPolicy, pi) !== 0);
-  const segmentoJovenAplica = PLANES.map(
+  const ajusteHijosAplica = PLAN_CODES.map((_, pi) => planFactor(ajusteHijosPolicy, pi) !== 0);
+  const segmentoJovenAplica = PLAN_CODES.map(
     (_, pi) => planFactor(segJoven25Policy, pi) !== 0 || (isAMBA && planFactor(segJoven29Policy, pi) !== 0)
   );
   const usoInternoPctByPlan = (amtByPlan: number[], aplica: boolean[]): (number | null)[] =>
-    PLANES.map((_, pi) => (aplica[pi] && subtotales[pi] ? Math.abs(amtByPlan[pi]) / subtotales[pi] : null));
+    PLAN_CODES.map((_, pi) => (aplica[pi] && subtotales[pi] ? Math.abs(amtByPlan[pi]) / subtotales[pi] : null));
   const usoInterno = {
     ajusteHijosPct: usoInternoPctByPlan(ajusteHijosAmt, ajusteHijosAplica),
     segmentoJovenPct: usoInternoPctByPlan(segmentoJovenAmt, segmentoJovenAplica),

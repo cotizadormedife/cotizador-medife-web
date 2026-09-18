@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/auth/session";
 import { createServiceClient } from "@/lib/supabase/service";
 import { parsePriceList } from "@/lib/excel/parsePriceList";
 import { parseDiscountPolicies } from "@/lib/excel/parseDiscountPolicies";
-import { parseRegionesFiliales } from "@/lib/excel/parseRegionesFiliales";
+import { parseRegionesFiliales, parsePlanesFromInfo } from "@/lib/excel/parseRegionesFiliales";
 import { resolveUploadTarget } from "@/lib/pricing/repository";
 import { formatVigencia } from "@/lib/pricing/vigencia";
 import { logAction } from "@/lib/auditLog";
@@ -27,6 +27,8 @@ export type UploadState =
         totalRegiones: number;
         totalFiliales: number;
         geoWarnings: string[];
+        totalPlanes: number;
+        planWarnings: string[];
       };
     }
   | { ok: false; error: string };
@@ -45,9 +47,25 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
   const buffer = await file.arrayBuffer();
   const supabase = createServiceClient();
 
+  // M13: los planes/productos vigentes (hoja "Info", columna "Producto") se
+  // interpretan primero — tanto "Resumen LP" como "Políticas Comerciales"
+  // necesitan esta lista (en orden) para ubicar sus columnas por plan.
+  const { data: plansData } = await supabase.from("plans").select("code, nombre, sort_order");
+  const existingPlanes = (plansData ?? []).map((p) => ({ code: p.code, nombre: p.nombre, sortOrder: p.sort_order }));
+  let parsedPlanes;
+  try {
+    parsedPlanes = await parsePlanesFromInfo(buffer, existingPlanes);
+  } catch (e: any) {
+    return { ok: false, error: "No se pudo leer los planes/productos del archivo: " + (e.message ?? String(e)) };
+  }
+  if (parsedPlanes.report.errors.length > 0) {
+    return { ok: false, error: parsedPlanes.report.errors.join(" ") };
+  }
+  const planes = parsedPlanes.planes;
+
   let parsed;
   try {
-    parsed = await parsePriceList(buffer);
+    parsed = await parsePriceList(buffer, planes);
   } catch (e: any) {
     return { ok: false, error: "No se pudo leer el archivo: " + (e.message ?? String(e)) };
   }
@@ -62,7 +80,7 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
   const filialCodes = (filiales ?? []).map((f) => f.code);
   let parsedPolicies;
   try {
-    parsedPolicies = await parseDiscountPolicies(buffer, filialCodes);
+    parsedPolicies = await parseDiscountPolicies(buffer, filialCodes, planes);
   } catch (e: any) {
     return { ok: false, error: "No se pudo leer las políticas comerciales del archivo: " + (e.message ?? String(e)) };
   }
@@ -109,6 +127,7 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
   const policyRows = parsedPolicies.policies;
   const regionRows = parsedGeo.regions;
   const filialRows = parsedGeo.filiales;
+  const planRows = planes.map((p) => ({ code: p.code, nombre: p.nombre, sortOrder: p.sortOrder }));
 
   const combinedReport = {
     totalCells: parsed.report.totalCells,
@@ -121,6 +140,8 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     totalRegiones: regionRows.length,
     totalFiliales: filialRows.length,
     geoWarnings: parsedGeo.report.warnings,
+    totalPlanes: planRows.length,
+    planWarnings: parsedPlanes.report.warnings,
   };
 
   if (target.existingId) {
@@ -133,6 +154,7 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
       p_actor_id: actor.id,
       p_region_rows: regionRows,
       p_filial_rows: filialRows,
+      p_plan_rows: planRows,
     });
     if (rpcErr) {
       return { ok: false, error: "No se pudieron reemplazar los precios y descuentos: " + rpcErr.message };
@@ -169,6 +191,7 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     p_actor_id: actor.id,
     p_region_rows: regionRows,
     p_filial_rows: filialRows,
+    p_plan_rows: planRows,
   });
   if (rpcErr || !newVersionId) {
     return { ok: false, error: "No se pudo crear la versión: " + (rpcErr?.message ?? "") };

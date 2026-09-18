@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
-import { PLANES } from "../pricing/types";
+import { matchesPlanName } from "../pricing/planMatch";
+import type { PlanRef } from "../pricing/types";
 import type { PolicyCategoriaEspecial, PolicyGrupo } from "../pricing/types";
 
 // RF-M8: el mismo Excel que trae la lista de precios ("Resumen LP") trae
@@ -57,10 +58,23 @@ const COL_VALOR_PCT = 9;
 const COL_DETALLE = 10;
 const COL_COMENTARIOS = 11;
 // L (12) queda en blanco en el Excel fuente antes de los overrides por plan.
-const COL_PLAN_START = 13; // M..S: INDIE, MEDIFÉ+, BRONCE CLASSIC, BRONCE, PLATA, ORO, PLATINUM
+// M13: la cantidad de columnas de override por plan ya no es fija en 7 (M..S)
+// — se ubican por el nombre de cada plan en el encabezado (fila 2), dentro
+// de un rango de búsqueda generoso, en vez de asumir siempre "7 columnas
+// arrancando en M".
+const COL_PLAN_START = 13;
+const COL_PLAN_SEARCH_WIDTH = 20;
 
-// Mismo orden que PLANES en lib/pricing/types.ts.
-const PLAN_COLUMNS: string[] = ["INDIE", "MEDIFEPLUS", "BRONCE_C", "BRONCE", "PLATA", "ORO", "PLATINUM"];
+function mapPlanColumns(sheet: ExcelJS.Worksheet, planes: PlanRef[], warnings: string[]): number[] {
+  const header = sheet.getRow(HEADER_ROW);
+  return planes.map((plan) => {
+    for (let c = COL_PLAN_START; c < COL_PLAN_START + COL_PLAN_SEARCH_WIDTH; c++) {
+      if (matchesPlanName(String(header.getCell(c).value ?? ""), plan.nombre)) return c;
+    }
+    warnings.push(`"Políticas Comerciales": no se encontró la columna de override del plan "${plan.nombre}" — se tomó como "no aplica" en todas las filas.`);
+    return -1;
+  });
+}
 
 const CATEGORIA_ESPECIAL_POR_DESCRIPCION: Record<string, PolicyCategoriaEspecial> = {
   "AJUSTE LISTA HIJOS": "ajuste_hijos",
@@ -240,7 +254,11 @@ function parseComentarios(
   return result;
 }
 
-export async function parseDiscountPolicies(buffer: ArrayBuffer, knownFilialCodes: string[] = []): Promise<PolicyParseResult> {
+export async function parseDiscountPolicies(
+  buffer: ArrayBuffer,
+  knownFilialCodes: string[] = [],
+  planes: PlanRef[] = []
+): Promise<PolicyParseResult> {
   const warnings: string[] = [];
   const errors: string[] = [];
   const policies: ParsedPolicy[] = [];
@@ -254,7 +272,14 @@ export async function parseDiscountPolicies(buffer: ArrayBuffer, knownFilialCode
       report: { ok: false, totalPolicies: 0, porGrupo: {}, warnings, errors: ['No se encontró la hoja "Políticas Comerciales" en el archivo.'], },
     };
   }
+  if (planes.length === 0) {
+    return {
+      policies: [],
+      report: { ok: false, totalPolicies: 0, porGrupo: {}, warnings, errors: ['No hay planes para interpretar los overrides por plan — revisar la columna "Producto" de la hoja "Info".'] },
+    };
+  }
 
+  const planColumns = mapPlanColumns(sheet, planes, warnings);
   const slugCount: Record<string, number> = {};
 
   for (let r = FIRST_DATA_ROW; r <= sheet.rowCount; r++) {
@@ -381,24 +406,26 @@ export async function parseDiscountPolicies(buffer: ArrayBuffer, knownFilialCode
       warnings.push(`"${descripcion}": no se pudo interpretar el escalonado de "Detalle" ("${detalle}") — se importó sin cronograma, revisar.`);
     }
 
-    let planRules: ParsedPlanRule[] = PLANES.map((planCode, i) => {
-      const cell = row.getCell(COL_PLAN_START + i);
+    let planRules: ParsedPlanRule[] = planes.map((plan, i) => {
+      const col = planColumns[i];
+      if (col < 0) return { planCode: plan.code, aplica: false };
+      const cell = row.getCell(col);
       const { value, isNumeric } = cellNumber(cell);
       if (!isNumeric && cellText(cell).trim() !== "") {
-        warnings.push(`"${descripcion}": celda inválida en la columna de plan ${PLAN_COLUMNS[i]} — se tomó como "no aplica".`);
+        warnings.push(`"${descripcion}": celda inválida en la columna de plan "${plan.nombre}" — se tomó como "no aplica".`);
       }
-      return { planCode, aplica: value !== 0 };
+      return { planCode: plan.code, aplica: value !== 0 };
     });
 
-    // Bug real detectado: en algunas filas de "Descuento Estratégico" las 7
+    // Bug real detectado: en algunas filas de "Descuento Estratégico" las
     // columnas de plan vienen todas en 0 a pesar de que "Valor % 1er mes" no
     // lo es (ej. Opción 6) — el descuento queda seleccionable pero no aplica
     // nada. Todas las demás filas de este grupo siguen el mismo patrón
     // (aplica a todos los planes salvo INDIE, al valor general) — se usa
     // como respaldo acá en vez de dejar la fila sin efecto en silencio.
     if (grupo === "estrategico" && valorPct !== 0 && planRules.every((r) => !r.aplica)) {
-      planRules = PLANES.map((planCode) => ({ planCode, aplica: planCode !== "INDIE" }));
-      warnings.push(`"${descripcion}": las 7 columnas de plan vinieron en 0 pese a que el descuento tiene un valor (${(valorPct * 100).toFixed(1)}%) — se aplicó a todos los planes salvo INDIE (mismo criterio que el resto de "Descuento Estratégico"), revisar si corresponde.`);
+      planRules = planes.map((plan) => ({ planCode: plan.code, aplica: !matchesPlanName(plan.nombre, "INDIE") }));
+      warnings.push(`"${descripcion}": las columnas de plan vinieron en 0 pese a que el descuento tiene un valor (${(valorPct * 100).toFixed(1)}%) — se aplicó a todos los planes salvo INDIE (mismo criterio que el resto de "Descuento Estratégico"), revisar si corresponde.`);
     }
 
     // Slug de clasificación: nombre + zona/región + categoría, legible y

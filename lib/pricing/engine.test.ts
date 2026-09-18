@@ -595,4 +595,63 @@ describe("computeQuote", () => {
     expect(result.planes[4].aportes).toBeCloseTo(-aporteEsperado, 2);
     expect(result.planes[4].total).toBeCloseTo(AMBA_OBL_TITULAR_36_40[4] - aporteEsperado, 2);
   });
+
+  it("RF-M13: con data.planes propio (reordenado y con un plan nuevo), el resultado respeta ese orden en vez del set estático", () => {
+    const input: QuoteInput = {
+      region: "AMBA",
+      categoria: "Obl",
+      procedencia: "Otros",
+      filial: "CABA",
+      miembros: [{ tipo: "Titular", rango: "36-40" }],
+      selectedPolicyIds: ["oro-plata-only"],
+    };
+    // Orden real de la lista subida: ORO antes que PLATA (al revés del set
+    // estático), más un plan genuinamente nuevo que no existía antes.
+    const data: PricingData = {
+      prices: [
+        { ageBracketCode: "36-40", planCode: "ORO", monto: 377487 },
+        { ageBracketCode: "36-40", planCode: "PLATA", monto: 302466 },
+        { ageBracketCode: "36-40", planCode: "NUEVO_PLAN", monto: 999999 },
+      ],
+      policies: [
+        policy({
+          id: "oro-plata-only",
+          categoriaScope: "Obl",
+          valorPct: -0.1,
+          permanente: true,
+          // Esta política viene de una carga vieja: no conoce NUEVO_PLAN, así
+          // que no debería aplicarle nada (en vez de romper o aplicar por defecto).
+          planRules: [
+            { planCode: "ORO", aplica: true, valorOverride: null },
+            { planCode: "PLATA", aplica: true, valorOverride: null },
+          ],
+        }),
+      ],
+      monotributoBrackets: { A: 25694.55, D: 30535.56 },
+      config: {
+        aporte_tope: 4509567.41,
+        aporte_pct_capado: 0.0255,
+        aporte_pct_no_capado: 0.051,
+        aporte_factor_obras_sociales: 0.93,
+        aporte_factor_medife: 0.97,
+        monotributo_factor: 0.93,
+        iva_voluntario_pct: 0.105,
+      },
+      priceListVersionId: "test-version",
+      planes: [
+        { code: "ORO", nombre: "Oro", sortOrder: 1 },
+        { code: "PLATA", nombre: "Plata", sortOrder: 2 },
+        { code: "NUEVO_PLAN", nombre: "Nuevo Plan", sortOrder: 3 },
+      ],
+    };
+    const result = computeQuote(input, data);
+
+    expect(result.planes.map((p) => p.planCode)).toEqual(["ORO", "PLATA", "NUEVO_PLAN"]);
+    expect(result.planes.map((p) => p.nombre)).toEqual(["Oro", "Plata", "Nuevo Plan"]);
+    expect(result.planes[0].total).toBeCloseTo(377487 * 0.9, 2); // ORO con -10%
+    expect(result.planes[1].total).toBeCloseTo(302466 * 0.9, 2); // PLATA con -10%
+    // El plan nuevo no tiene regla en la política vieja: no se le aplica el
+    // descuento, en vez de heredarlo o romper el cálculo.
+    expect(result.planes[2].total).toBeCloseTo(999999, 2);
+  });
 });

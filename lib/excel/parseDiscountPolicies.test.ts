@@ -2,6 +2,19 @@ import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
 import { parseDiscountPolicies } from "./parseDiscountPolicies";
 
+// M13: mismos 7 planes reales, con "BRONCE C." (nombre del catálogo) en vez
+// de "BRONCE CLASSIC" (texto del Excel) — ejercita el alias de planMatch.ts
+// en vez de matchear literal.
+const TEST_PLANES = [
+  { code: "INDIE", nombre: "INDIE", sortOrder: 1 },
+  { code: "MEDIFEPLUS", nombre: "MEDIFÉ+", sortOrder: 2 },
+  { code: "BRONCE_C", nombre: "BRONCE C.", sortOrder: 3 },
+  { code: "BRONCE", nombre: "BRONCE", sortOrder: 4 },
+  { code: "PLATA", nombre: "PLATA", sortOrder: 5 },
+  { code: "ORO", nombre: "ORO", sortOrder: 6 },
+  { code: "PLATINUM", nombre: "PLATINUM", sortOrder: 7 },
+];
+
 const HEADER = [
   "",
   "Tipo",
@@ -184,7 +197,7 @@ const comentarioRaro: Row = { ...opcion5, descripcion: "Opción Rara", comentari
 describe("parseDiscountPolicies", () => {
   it("clasifica Opción 4/5/6/7 correctamente", async () => {
     const buf = await buildWorkbook([opcion4, opcion5, opcion6, opcion7]);
-    const { policies, report } = await parseDiscountPolicies(buf);
+    const { policies, report } = await parseDiscountPolicies(buf, [], TEST_PLANES);
     expect(report.errors).toEqual([]);
     expect(policies).toHaveLength(4);
 
@@ -221,7 +234,7 @@ describe("parseDiscountPolicies", () => {
   it("clasifica las 4 categorías automáticas (grupo='ajuste')", async () => {
     const segJoven29: Row = { ...ajusteHijos, descripcion: "Segmento Joven h/29", valor: -0.13 };
     const buf = await buildWorkbook([ajusteHijos, segJoven29, descuentoFilial]);
-    const { policies } = await parseDiscountPolicies(buf);
+    const { policies } = await parseDiscountPolicies(buf, [], TEST_PLANES);
 
     const hijos = policies.find((p) => p.nombre === "Ajuste lista Hijos")!;
     expect(hijos.grupo).toBe("ajuste");
@@ -239,7 +252,7 @@ describe("parseDiscountPolicies", () => {
 
   it("GAF: procedenciaGate='GAF' y región SUR -> SurExt", async () => {
     const buf = await buildWorkbook([gaf, gafSur]);
-    const { policies } = await parseDiscountPolicies(buf);
+    const { policies } = await parseDiscountPolicies(buf, [], TEST_PLANES);
     expect(policies[0].procedenciaGate).toBe("GAF");
     expect(policies[0].region).toBe("AMBA");
     expect(policies[1].region).toBe("SurExt");
@@ -249,7 +262,7 @@ describe("parseDiscountPolicies", () => {
     const gafNoAcumulable: Row = { ...gaf, descripcion: "GAF EXCLUSIVO", comentarios: "No acumulable con otros descuentos" };
     const gafConcatenable: Row = { ...gafSur, descripcion: "GAF CONCATENABLE", comentarios: "Concatenable con la opción 4" };
     const buf = await buildWorkbook([gafNoAcumulable, gafConcatenable]);
-    const { policies } = await parseDiscountPolicies(buf);
+    const { policies } = await parseDiscountPolicies(buf, [], TEST_PLANES);
 
     const p1 = policies.find((p) => p.nombre === "GAF EXCLUSIVO")!;
     expect(p1.excluyeOtros).toBe(true);
@@ -261,7 +274,7 @@ describe("parseDiscountPolicies", () => {
 
   it("Dto Táctico con exclusión de grupo Estratégico", async () => {
     const buf = await buildWorkbook([dtoIndie]);
-    const { policies } = await parseDiscountPolicies(buf);
+    const { policies } = await parseDiscountPolicies(buf, [], TEST_PLANES);
     expect(policies[0].grupo).toBe("tactico");
     expect(policies[0].excluyeGrupo).toEqual(["estrategico"]);
     expect(policies[0].planRules.find((r) => r.planCode === "INDIE")?.aplica).toBe(true);
@@ -270,7 +283,7 @@ describe("parseDiscountPolicies", () => {
 
   it("Tipo desconocido y Comentarios no reconocidos generan warnings, sin bloquear la carga", async () => {
     const buf = await buildWorkbook([tipoDesconocido, comentarioRaro]);
-    const { policies, report } = await parseDiscountPolicies(buf);
+    const { policies, report } = await parseDiscountPolicies(buf, [], TEST_PLANES);
     expect(report.ok).toBe(true);
     expect(policies.find((p) => p.nombre === "Cosa Nueva")?.grupo).toBe("otro");
     expect(report.warnings.some((w) => w.includes("Tipo") && w.includes("no reconocido"))).toBe(true);
@@ -282,14 +295,14 @@ describe("parseDiscountPolicies", () => {
 
   it("slugs quedan únicos dentro de la misma carga", async () => {
     const buf = await buildWorkbook([opcion4, { ...opcion4, categoria: "Vol", valor: -0.15, planes: [0, -0.15, -0.15, -0.15, -0.15, -0.15, -0.15] }]);
-    const { policies } = await parseDiscountPolicies(buf);
+    const { policies } = await parseDiscountPolicies(buf, [], TEST_PLANES);
     expect(new Set(policies.map((p) => p.slug)).size).toBe(2);
   });
 
   it("provincias en Descuento Filial se resuelven a la filial real (NOA)", async () => {
     const filialNoa: Row = { ...descuentoFilial, procedencia: "Tucumán, Salta y Jujuy" };
     const buf = await buildWorkbook([filialNoa]);
-    const { policies, report } = await parseDiscountPolicies(buf, ["NOA", "Córdoba", "Santa Fe"]);
+    const { policies, report } = await parseDiscountPolicies(buf, ["NOA", "Córdoba", "Santa Fe"], TEST_PLANES);
     expect(policies[0].zonaFilial).toBe("NOA");
     expect(report.warnings).toEqual([]);
   });
@@ -298,7 +311,7 @@ describe("parseDiscountPolicies", () => {
     const caba: Row = { ...gaf, zonas: "CABA" };
     const comahue: Row = { ...gaf, zonas: "COMAHUE", descripcion: "Algo en Comahue" };
     const buf = await buildWorkbook([caba, comahue]);
-    const { policies } = await parseDiscountPolicies(buf);
+    const { policies } = await parseDiscountPolicies(buf, [], TEST_PLANES);
     expect(policies[0].region).toBe("AMBA");
     expect(policies[1].region).toBe("Patagonia");
   });
@@ -307,7 +320,7 @@ describe("parseDiscountPolicies", () => {
     const gafConPlazo: Row = { ...gaf, plazoMax: "12 meses" };
     const gafSinPlazo: Row = { ...gaf, descripcion: "GAF sin plazo", plazoMax: "NA" };
     const buf = await buildWorkbook([gafConPlazo, gafSinPlazo]);
-    const { policies } = await parseDiscountPolicies(buf);
+    const { policies } = await parseDiscountPolicies(buf, [], TEST_PLANES);
     const conPlazo = policies.find((p) => p.nombre === gaf.descripcion)!;
     expect(conPlazo.permanente).toBe(false);
     expect(conPlazo.plazoMeses).toBe(12);
@@ -319,7 +332,7 @@ describe("parseDiscountPolicies", () => {
   it("GBA (sin sub-zona) en Procedencia no restringe la filial (equivale a AMBA)", async () => {
     const dtoGba: Row = { ...dtoIndie, descripcion: "Dto Mes 18/65_Oro", procedencia: "GBA", comentarios: "" };
     const buf = await buildWorkbook([dtoGba]);
-    const { policies, report } = await parseDiscountPolicies(buf);
+    const { policies, report } = await parseDiscountPolicies(buf, [], TEST_PLANES);
     expect(policies[0].zonaFilial).toBeNull();
     expect(report.warnings).toEqual([]);
   });
@@ -328,7 +341,7 @@ describe("parseDiscountPolicies", () => {
     const dtoCaba: Row = { ...dtoIndie, descripcion: "Dto Mes 36/65_Oro", procedencia: "CABA", comentarios: "" };
     const dtoGbaSur: Row = { ...dtoIndie, descripcion: "Dto Mes 36/40_Bronce", procedencia: "GBA Sur", comentarios: "" };
     const buf = await buildWorkbook([dtoCaba, dtoGbaSur]);
-    const { policies, report } = await parseDiscountPolicies(buf, ["CABA", "GBA Sur", "GBA Oeste", "GBA Norte"]);
+    const { policies, report } = await parseDiscountPolicies(buf, ["CABA", "GBA Sur", "GBA Oeste", "GBA Norte"], TEST_PLANES);
     expect(policies[0].zonaFilial).toBe("CABA");
     expect(policies[1].zonaFilial).toBe("GBA Sur");
     expect(report.warnings).toEqual([]);
@@ -338,7 +351,7 @@ describe("parseDiscountPolicies", () => {
     const wb = new ExcelJS.Workbook();
     wb.addWorksheet("Otra hoja");
     const buf = (await wb.xlsx.writeBuffer()) as unknown as ArrayBuffer;
-    const { policies, report } = await parseDiscountPolicies(buf);
+    const { policies, report } = await parseDiscountPolicies(buf, [], TEST_PLANES);
     expect(policies).toEqual([]);
     expect(report.ok).toBe(false);
     expect(report.errors[0]).toContain("Políticas Comerciales");

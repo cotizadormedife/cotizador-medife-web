@@ -1,4 +1,6 @@
 import ExcelJS from "exceljs";
+import { matchesPlanName } from "../pricing/planMatch";
+import type { PlanRef } from "../pricing/types";
 
 // M9 (corregido): la hoja "Info" tiene 3 columnas relacionadas por fila —
 // "Región" (repetida tantas veces como filiales tenga), "AMBA Dto del mes"
@@ -17,6 +19,7 @@ export type ParsedFilial = { code: string; regionCode: string; nombre: string; s
 
 export type GeoParseReport = { warnings: string[]; errors: string[] };
 export type GeoParseResult = { regions: ParsedRegion[]; filiales: ParsedFilial[]; report: GeoParseReport };
+export type PlanesParseResult = { planes: PlanRef[]; report: GeoParseReport };
 
 const HEADER_ROW = 1;
 const FIRST_DATA_ROW = 2;
@@ -133,4 +136,65 @@ export async function parseRegionesFiliales(
   }
 
   return { regions, filiales, report: { warnings, errors } };
+}
+
+// M13: los planes/productos vigentes para esta lista se leen de la columna
+// "Producto" de la hoja "Info" (ya existe en el Excel real, listando los 7
+// planes de hoy en el orden en que se muestran) — a pedido de Diego, la
+// cantidad y el orden de los planes puede cambiar de una lista a otra (se
+// espera que se agregue uno en una próxima versión), así que dejan de ser
+// un catálogo global estático y pasan a leerse acá, versionados por lista.
+export async function parsePlanesFromInfo(
+  buffer: ArrayBuffer,
+  existingPlanes: PlanRef[] = []
+): Promise<PlanesParseResult> {
+  const warnings: string[] = [];
+  const errors: string[] = [];
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer as any);
+  const sheet = workbook.getWorksheet("Info");
+  if (!sheet) {
+    return { planes: [], report: { warnings, errors: ['No se encontró la hoja "Info" en el archivo.'] } };
+  }
+
+  const colProducto = findColumn(sheet, (h) => h === "PRODUCTO");
+  if (!colProducto) {
+    return {
+      planes: [],
+      report: { warnings, errors: ['No se encontró en la hoja "Info" la columna "Producto" — revisar el encabezado de la fila 1.'] },
+    };
+  }
+
+  const planes: PlanRef[] = [];
+  let sortOrder = 0;
+  for (let r = FIRST_DATA_ROW; r <= sheet.rowCount; r++) {
+    const raw = norm(cellText(sheet.getRow(r).getCell(colProducto)));
+    if (!raw || raw === "-") continue;
+    sortOrder += 1;
+
+    const existing = existingPlanes.find((p) => matchesPlanName(p.nombre, raw) || sameName(p.code, raw));
+    if (existing) {
+      planes.push({ code: existing.code, nombre: existing.nombre, sortOrder });
+    } else {
+      // Plan nuevo: no está en el catálogo global — se agrega igual, con un
+      // code derivado del nombre (se registra en el catálogo al guardar la
+      // carga), en vez de dejarlo afuera como se haría con una filial no
+      // reconocida (un plan nuevo sí tiene que poder cotizarse).
+      const code = raw
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .replace(/[^A-Z0-9]+/g, "_")
+        .replace(/(^_|_$)/g, "");
+      planes.push({ code, nombre: raw, sortOrder });
+      warnings.push(`"Info" fila ${r}: el producto "${raw}" es nuevo — no estaba en el catálogo, se agregó.`);
+    }
+  }
+
+  if (planes.length === 0) {
+    errors.push('No se interpretó ningún producto en la columna "Producto" de la hoja "Info".');
+  }
+
+  return { planes, report: { warnings, errors } };
 }

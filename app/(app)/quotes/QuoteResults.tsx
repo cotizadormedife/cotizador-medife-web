@@ -2,7 +2,6 @@
 
 import { Fragment, useState } from "react";
 import type { Miembro, QuoteResult } from "@/lib/pricing/types";
-import { PLANES, PLAN_LABELS } from "@/lib/pricing/types";
 import { cambioLabel, composicionLabel, condicionLabel, cronogramaLabel, origenLabel } from "./printLabels";
 
 export const fmtMoney = (n: number) =>
@@ -26,7 +25,9 @@ export type QuoteResultsMeta = {
 };
 
 export default function QuoteResults({ result, meta }: { result: QuoteResult; meta?: QuoteResultsMeta }) {
-  const plataIdx = 4;
+  // M13: los planes ya no tienen una posición fija — PLATA se ubica por
+  // nombre dentro de esta cotización puntual, en vez de asumir el índice 4.
+  const plataIdx = Math.max(0, result.planes.findIndex((p) => p.nombre.toUpperCase() === "PLATA"));
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selection, setSelection] = useState<Set<number>>(new Set(result.planes.map((_, i) => i)));
   const [hiddenPlans, setHiddenPlans] = useState<Set<number>>(new Set());
@@ -152,7 +153,7 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
               textAlign: "center",
             }}
           >
-            <div style={{ fontSize: 12, color: "var(--text-neutral)", fontWeight: 700 }}>{PLAN_LABELS[p.planCode]}</div>
+            <div style={{ fontSize: 12, color: "var(--text-neutral)", fontWeight: 700 }}>{p.nombre}</div>
             <div className="mono" style={{ fontSize: 20, fontWeight: 700, margin: "8px 0" }}>{fmtMoney(p.total)}</div>
             <div style={{ fontSize: 11, color: "var(--text-neutral)" }}>1ª cuota</div>
             {p.descuentoComercialPct !== 0 && (
@@ -179,7 +180,7 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
                   <th style={th}>Concepto</th>
                   {result.planes.map((p) => (
                     <th key={p.planCode} style={th}>
-                      {PLAN_LABELS[p.planCode]}
+                      {p.nombre}
                     </th>
                   ))}
                 </tr>
@@ -224,7 +225,7 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
               <th style={th}>Concepto</th>
               {result.planes.map((p, i) => (
                 <th key={p.planCode} style={th} className={hiddenPlans.has(i) ? "plan-col-hidden" : undefined}>
-                  {PLAN_LABELS[p.planCode]}
+                  {p.nombre}
                 </th>
               ))}
             </tr>
@@ -293,9 +294,9 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
           <thead>
             <tr>
               <th style={th}>Cuota</th>
-              {PLANES.map((plan, i) => (
-                <th key={plan} style={th} className={hiddenPlans.has(i) ? "plan-col-hidden" : undefined}>
-                  {PLAN_LABELS[plan]}
+              {result.planes.map((p, i) => (
+                <th key={p.planCode} style={th} className={hiddenPlans.has(i) ? "plan-col-hidden" : undefined}>
+                  {p.nombre}
                 </th>
               ))}
             </tr>
@@ -305,16 +306,16 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
               <Fragment key={c.month}>
                 {c.cambios.map((cambio, ci) => (
                   <tr key={`cambio-${ci}`} className="print-only-row cambio-row">
-                    <td colSpan={PLANES.length + 1} style={{ ...td, textAlign: "left" }}>
+                    <td colSpan={result.planes.length + 1} style={{ ...td, textAlign: "left" }}>
                       ▶ {cambioLabel(cambio, c.month)}
                     </td>
                   </tr>
                 ))}
                 <tr>
                   <td style={td}>Cuota {c.month}</td>
-                  {PLANES.map((plan, i) => (
-                    <td key={plan} className={`mono${hiddenPlans.has(i) ? " plan-col-hidden" : ""}`} style={td}>
-                      {fmtMoney(c.porPlan[plan])}
+                  {result.planes.map((p, i) => (
+                    <td key={p.planCode} className={`mono${hiddenPlans.has(i) ? " plan-col-hidden" : ""}`} style={td}>
+                      {fmtMoney(c.porPlan[p.planCode])}
                     </td>
                   ))}
                 </tr>
@@ -414,7 +415,7 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
                     onChange={(e) => toggleSelection(i, e.target.checked)}
                     style={{ width: "auto", minHeight: 0, accentColor: "var(--brand-orange)" }}
                   />
-                  <span style={{ flex: 1 }}>{PLAN_LABELS[p.planCode]}</span>
+                  <span style={{ flex: 1 }}>{p.nombre}</span>
                   <span style={{ fontWeight: 600 }}>{fmtMoney(p.total)}</span>
                 </label>
               ))}

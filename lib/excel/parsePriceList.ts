@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
-import { PLANES } from "@/lib/pricing/types";
+import { matchesPlanName } from "../pricing/planMatch";
+import type { PlanRef } from "../pricing/types";
 
 export type ParsedPriceRow = {
   regionCode: string;
@@ -80,20 +81,76 @@ function cellNumber(cell: ExcelJS.Cell): number {
   return isNaN(n) ? 0 : Math.round(n);
 }
 
-type Row7 = { obl: number[]; vol: number[] };
+type RowN = { obl: number[]; vol: number[] };
 
-function readBlockRows(sheet: ExcelJS.Worksheet, rowStart: number, rowEnd: number): Map<string, Row7> {
-  const table = new Map<string, Row7>();
+// M13: hasta ahora las columnas de precio por plan eran 7, en posición fija
+// (E-K Obligatorio, N-T Voluntario) y se les asignaba el plan por índice de
+// un array hardcodeado — a pedido de Diego, la cantidad y el orden de los
+// planes puede cambiar de una lista a otra, y "Resumen LP" ya trae, en la
+// fila justo arriba de la categoría "Obl"/"Vol" (fila 4 hoy), el nombre de
+// cada plan como encabezado — se busca esa fila por contenido, no por
+// posición fija (la hoja ya movió columnas una vez, con Región en M9).
+function findPlanColumnBlocks(
+  sheet: ExcelJS.Worksheet,
+  searchUpToRow: number
+): { headerRow: number; oblCols: number[]; volCols: number[] } | null {
+  for (let r = 1; r <= searchUpToRow; r++) {
+    const row = sheet.getRow(r);
+    if (normalizeLabel(row.getCell(COL_OBL_START).value) !== "OBL") continue;
+
+    const oblCols: number[] = [];
+    let c = COL_OBL_START;
+    while (normalizeLabel(row.getCell(c).value) === "OBL") {
+      oblCols.push(c);
+      c++;
+    }
+    const maxGap = c + 10;
+    while (c < maxGap && !normalizeLabel(row.getCell(c).value)) c++;
+    const volCols: number[] = [];
+    while (normalizeLabel(row.getCell(c).value) === "VOL") {
+      volCols.push(c);
+      c++;
+    }
+    if (oblCols.length > 0 && volCols.length > 0) return { headerRow: r + 1, oblCols, volCols };
+  }
+  return null;
+}
+
+// Para cada plan de la lista (en el orden real de "Info"!Producto), ubica
+// su columna dentro del bloque Obl/Vol matcheando el nombre del plan contra
+// el texto del encabezado — no por posición.
+function mapPlanesToColumns(
+  sheet: ExcelJS.Worksheet,
+  headerRow: number,
+  cols: number[],
+  planes: PlanRef[],
+  warnings: string[],
+  blockLabel: string
+): number[] {
+  const header = sheet.getRow(headerRow);
+  return planes.map((plan) => {
+    const col = cols.find((c) => matchesPlanName(String(header.getCell(c).value ?? ""), plan.nombre));
+    if (col == null) {
+      warnings.push(`"Resumen LP" (${blockLabel}): no se encontró la columna del plan "${plan.nombre}" — se completó con $0 para ese plan.`);
+    }
+    return col ?? -1;
+  });
+}
+
+function readBlockRows(
+  sheet: ExcelJS.Worksheet,
+  rowStart: number,
+  rowEnd: number,
+  oblColByPlan: number[],
+  volColByPlan: number[]
+): Map<string, RowN> {
+  const table = new Map<string, RowN>();
   for (let r = rowStart; r <= rowEnd; r++) {
     const row = sheet.getRow(r);
     const label = normalizeLabel(row.getCell(COL_LABEL).value);
     if (!label) continue;
-    const obl: number[] = [];
-    const vol: number[] = [];
-    for (let i = 0; i < 7; i++) {
-      obl.push(cellNumber(row.getCell(COL_OBL_START + i)));
-      vol.push(cellNumber(row.getCell(COL_VOL_START + i)));
-    }
+    const obl = oblColByPlan.map((c) => (c < 0 ? 0 : cellNumber(row.getCell(c))));
+    const vol = volColByPlan.map((c) => (c < 0 ? 0 : cellNumber(row.getCell(c))));
     table.set(label, { obl, vol });
   }
   return table;
@@ -103,36 +160,48 @@ function pushPlanRows(
   out: ParsedPriceRow[],
   region: string,
   ageBracketCode: string,
-  row: Row7 | undefined,
+  row: RowN | undefined,
   warnings: string[],
-  sourceLabel: string
+  sourceLabel: string,
+  planes: PlanRef[]
 ) {
   if (!row) {
     warnings.push(`${region}: no se encontró la fila "${sourceLabel}" — se omite ${ageBracketCode}.`);
     return;
   }
-  PLANES.forEach((planCode, i) => {
-    out.push({ regionCode: region, categoria: "Obl", ageBracketCode, planCode, monto: row.obl[i] });
-    out.push({ regionCode: region, categoria: "Vol", ageBracketCode, planCode, monto: row.vol[i] });
+  planes.forEach((plan, i) => {
+    out.push({ regionCode: region, categoria: "Obl", ageBracketCode, planCode: plan.code, monto: row.obl[i] });
+    out.push({ regionCode: region, categoria: "Vol", ageBracketCode, planCode: plan.code, monto: row.vol[i] });
   });
 }
 
-// Combina una fila base con el valor de MEDIFÉ+ (índice 1) de otra fila —
-// espejo exacto del truco "merge" del importador legacy para el interior.
-function mergeMedifePlus(base: Row7 | undefined, medifePlusSource: Row7 | undefined | null): Row7 | undefined {
+// Combina una fila base con el valor de MEDIFÉ+ de otra fila — espejo exacto
+// del truco "merge" del importador legacy para el interior. El índice de
+// MEDIFÉ+ ya no es fijo (era el 1 en el array de 7 planes) — se ubica por
+// nombre dentro de la lista de planes de esta versión.
+function mergeMedifePlus(base: RowN | undefined, medifePlusSource: RowN | undefined | null, medifePlusIdx: number): RowN | undefined {
   if (!base) return undefined;
   const obl = base.obl.slice();
   const vol = base.vol.slice();
-  obl[1] = medifePlusSource ? medifePlusSource.obl[1] : 0;
-  vol[1] = medifePlusSource ? medifePlusSource.vol[1] : 0;
+  if (medifePlusIdx >= 0) {
+    obl[medifePlusIdx] = medifePlusSource ? medifePlusSource.obl[medifePlusIdx] : 0;
+    vol[medifePlusIdx] = medifePlusSource ? medifePlusSource.vol[medifePlusIdx] : 0;
+  }
   return { obl, vol };
 }
 
-export async function parsePriceList(buffer: ArrayBuffer): Promise<ParseResult> {
+export async function parsePriceList(buffer: ArrayBuffer, planes: PlanRef[]): Promise<ParseResult> {
   const warnings: string[] = [];
   const errors: string[] = [];
   const prices: ParsedPriceRow[] = [];
   const regionsParsed: string[] = [];
+
+  if (planes.length === 0) {
+    return {
+      prices: [],
+      report: { ok: false, totalCells: 0, warnings, errors: ["No hay planes para cargar precios — revisar la columna \"Producto\" de la hoja \"Info\"."], regionsParsed: [] },
+    };
+  }
 
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer as any);
@@ -144,22 +213,39 @@ export async function parsePriceList(buffer: ArrayBuffer): Promise<ParseResult> 
     };
   }
 
+  const blocks = findPlanColumnBlocks(sheet, REGION_BLOCKS[0].rowStart - 1);
+  if (!blocks) {
+    return {
+      prices: [],
+      report: {
+        ok: false,
+        totalCells: 0,
+        warnings,
+        errors: ['No se encontraron en "Resumen LP" las columnas "Obl"/"Vol" con los encabezados de plan arriba de la primera región — revisar el layout de la hoja.'],
+        regionsParsed: [],
+      },
+    };
+  }
+  const oblColByPlan = mapPlanesToColumns(sheet, blocks.headerRow, blocks.oblCols, planes, warnings, "Obligatorio");
+  const volColByPlan = mapPlanesToColumns(sheet, blocks.headerRow, blocks.volCols, planes, warnings, "Voluntario");
+  const medifePlusIdx = planes.findIndex((p) => matchesPlanName(p.nombre, "MEDIFÉ+"));
+
   for (const block of REGION_BLOCKS) {
-    const table = readBlockRows(sheet, block.rowStart, block.rowEnd);
+    const table = readBlockRows(sheet, block.rowStart, block.rowEnd, oblColByPlan, volColByPlan);
 
     Object.entries(TITULAR_MAP).forEach(([label, code]) => {
-      pushPlanRows(prices, block.region, code, table.get(label), warnings, label);
+      pushPlanRows(prices, block.region, code, table.get(label), warnings, label, planes);
     });
     Object.entries(ESPOSO_MAP).forEach(([label, code]) => {
-      pushPlanRows(prices, block.region, code, table.get(label), warnings, label);
+      pushPlanRows(prices, block.region, code, table.get(label), warnings, label, planes);
     });
 
     if (block.isAMBA) {
       Object.entries(AMBA_HIJO_MAP).forEach(([label, codes]) => {
         const row = table.get(label);
-        codes.forEach((code) => pushPlanRows(prices, block.region, code, row, warnings, label));
+        codes.forEach((code) => pushPlanRows(prices, block.region, code, row, warnings, label, planes));
       });
-      pushPlanRows(prices, block.region, "FAM", table.get("FAMILIAR A CARGO"), warnings, "FAMILIAR A CARGO");
+      pushPlanRows(prices, block.region, "FAM", table.get("FAMILIAR A CARGO"), warnings, "FAMILIAR A CARGO", planes);
     } else {
       const h1 = table.get("HIJO 1");
       const h2 = table.get("HIJO 2");
@@ -174,20 +260,20 @@ export async function parsePriceList(buffer: ArrayBuffer): Promise<ParseResult> 
       // un valor real en la columna MEDIFÉ+ (el resto está en blanco) — el
       // resto de los planes toma como base otra fila (HIJO 2 / HIJO MAYOR A
       // CARGO), igual que el resto de las columnas "AD." de esta hoja.
-      pushPlanRows(prices, block.region, "HIJO-0-1", mergeMedifePlus(h1, h03), warnings, "HIJO 1 / HIJO 0 A 3");
-      pushPlanRows(prices, block.region, "HIJO-2-20", mergeMedifePlus(h2, h420), warnings, "HIJO 2 / HIJO 4 A 20");
-      pushPlanRows(prices, block.region, "HIJO-21-25", mergeMedifePlus(h2, h2125), warnings, "HIJO 2 / HIJO 21 A 25");
-      pushPlanRows(prices, block.region, "HIJO-26-29", mergeMedifePlus(hmac, h2629), warnings, "HIJO MAYOR A CARGO / HIJO 26 A 29");
-      pushPlanRows(prices, block.region, "HIJO-30-39", mergeMedifePlus(hmac, null), warnings, "HIJO MAYOR A CARGO");
-      pushPlanRows(prices, block.region, "HIJO-40-49", mergeMedifePlus(hmac, null), warnings, "HIJO MAYOR A CARGO");
-      pushPlanRows(prices, block.region, "FAM", fam, warnings, "FAMILIAR A CARGO");
+      pushPlanRows(prices, block.region, "HIJO-0-1", mergeMedifePlus(h1, h03, medifePlusIdx), warnings, "HIJO 1 / HIJO 0 A 3", planes);
+      pushPlanRows(prices, block.region, "HIJO-2-20", mergeMedifePlus(h2, h420, medifePlusIdx), warnings, "HIJO 2 / HIJO 4 A 20", planes);
+      pushPlanRows(prices, block.region, "HIJO-21-25", mergeMedifePlus(h2, h2125, medifePlusIdx), warnings, "HIJO 2 / HIJO 21 A 25", planes);
+      pushPlanRows(prices, block.region, "HIJO-26-29", mergeMedifePlus(hmac, h2629, medifePlusIdx), warnings, "HIJO MAYOR A CARGO / HIJO 26 A 29", planes);
+      pushPlanRows(prices, block.region, "HIJO-30-39", mergeMedifePlus(hmac, null, medifePlusIdx), warnings, "HIJO MAYOR A CARGO", planes);
+      pushPlanRows(prices, block.region, "HIJO-40-49", mergeMedifePlus(hmac, null, medifePlusIdx), warnings, "HIJO MAYOR A CARGO", planes);
+      pushPlanRows(prices, block.region, "FAM", fam, warnings, "FAMILIAR A CARGO", planes);
     }
 
     regionsParsed.push(block.region);
   }
 
-  // 5 regiones × 2 categorías × 21 tramos × 7 planes = 1470 celdas esperadas
-  const expected = REGION_BLOCKS.length * 2 * 21 * 7;
+  // 5 regiones × 2 categorías × 21 tramos × N planes celdas esperadas
+  const expected = REGION_BLOCKS.length * 2 * 21 * planes.length;
   if (prices.length !== expected) {
     warnings.push(`Se esperaban ${expected} celdas y se generaron ${prices.length}.`);
   }

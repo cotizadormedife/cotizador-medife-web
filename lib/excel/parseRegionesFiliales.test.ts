@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
-import { parseRegionesFiliales } from "./parseRegionesFiliales";
+import { parseRegionesFiliales, parsePlanesFromInfo } from "./parseRegionesFiliales";
 
 const EXISTING_REGIONS = [
   { code: "AMBA", nombre: "AMBA", sortOrder: 1 },
@@ -76,6 +76,68 @@ const DIEGO_EJEMPLO: Array<{ region: string; filial: string }> = [
   { region: "Bahía/MDQ", filial: "Bahía Blanca" },
   { region: "Bahía/MDQ", filial: "Tandil" },
 ];
+
+const EXISTING_PLANES = [
+  { code: "INDIE", nombre: "INDIE", sortOrder: 1 },
+  { code: "MEDIFEPLUS", nombre: "MEDIFÉ+", sortOrder: 2 },
+  { code: "BRONCE_C", nombre: "BRONCE C.", sortOrder: 3 },
+  { code: "BRONCE", nombre: "BRONCE", sortOrder: 4 },
+  { code: "PLATA", nombre: "PLATA", sortOrder: 5 },
+  { code: "ORO", nombre: "ORO", sortOrder: 6 },
+  { code: "PLATINUM", nombre: "PLATINUM", sortOrder: 7 },
+];
+
+// La hoja "Info" real trae la columna "Producto" con un producto por fila
+// (INDIE, MEDIFÉ+, BRONCE CLASSIC, ...) seguido de "-" y filas vacías.
+async function buildPlanesWorkbook(productos: string[], opts?: { sheetName?: string; headerOverride?: string[] }): Promise<ArrayBuffer> {
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet(opts?.sheetName ?? "Info");
+  const header = opts?.headerOverride ?? ["Dto", "Mes", "% dtos", "Categoria ", "Procedencia", "", "Gaf", "Producto", "Grupo familiar", "Región", "AMBA Dto del mes", "Interior"];
+  sheet.addRow(header);
+  const productoCol = header.findIndex((h) => h.toUpperCase() === "PRODUCTO");
+  for (const producto of productos) {
+    const row = new Array(header.length).fill("");
+    row[productoCol] = producto;
+    sheet.addRow(row);
+  }
+  const buf = await wb.xlsx.writeBuffer();
+  return buf as unknown as ArrayBuffer;
+}
+
+describe("parsePlanesFromInfo", () => {
+  it("interpreta los 7 planes conocidos en el orden de la columna Producto, con alias BRONCE CLASSIC → BRONCE C.", async () => {
+    const buf = await buildPlanesWorkbook(["INDIE", "MEDIFÉ+", "BRONCE CLASSIC", "BRONCE", "PLATA", "ORO", "PLATINUM", "-"]);
+    const { planes, report } = await parsePlanesFromInfo(buf, EXISTING_PLANES);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toEqual([]);
+    expect(planes.map((p) => p.code)).toEqual(["INDIE", "MEDIFEPLUS", "BRONCE_C", "BRONCE", "PLATA", "ORO", "PLATINUM"]);
+    expect(planes.map((p) => p.sortOrder)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it("un producto nuevo (no está en el catálogo) se agrega igual, con warning y code derivado del nombre", async () => {
+    const buf = await buildPlanesWorkbook(["INDIE", "PLATA", "DIAMANTE"]);
+    const { planes, report } = await parsePlanesFromInfo(buf, EXISTING_PLANES);
+    expect(report.errors).toEqual([]);
+    const nuevo = planes.find((p) => p.nombre === "DIAMANTE");
+    expect(nuevo?.code).toBe("DIAMANTE");
+    expect(nuevo?.sortOrder).toBe(3);
+    expect(report.warnings.some((w) => w.includes("DIAMANTE") && w.includes("nuevo"))).toBe(true);
+  });
+
+  it('columna "Producto" ausente produce error controlado', async () => {
+    const buf = await buildPlanesWorkbook([], { headerOverride: ["Dto", "Mes"] });
+    const { planes, report } = await parsePlanesFromInfo(buf, EXISTING_PLANES);
+    expect(planes).toEqual([]);
+    expect(report.errors[0]).toContain("Producto");
+  });
+
+  it("hoja Info faltante produce error controlado", async () => {
+    const buf = await buildPlanesWorkbook(["INDIE"], { sheetName: "Otra hoja" });
+    const { planes, report } = await parsePlanesFromInfo(buf, EXISTING_PLANES);
+    expect(planes).toEqual([]);
+    expect(report.errors[0]).toContain("Info");
+  });
+});
 
 describe("parseRegionesFiliales", () => {
   it("interpreta el ejemplo real de Diego: cada fila trae región + filial (AMBA o Interior según corresponda)", async () => {

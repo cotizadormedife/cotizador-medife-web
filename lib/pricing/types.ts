@@ -2,6 +2,11 @@ export type Categoria = "Vol" | "Obl";
 export type Procedencia = "Otros" | "comprobable";
 export type TipoMiembro = "Titular" | "Esposo/a" | "Hijo/a" | "Familiar a cargo";
 
+// M13: los planes/productos ya no son un catálogo fijo — se leen de cada
+// Excel (hoja "Info", columna "Producto") y quedan versionados por lista
+// (pueden cambiar de cantidad y de orden de una lista a otra). Este array
+// queda solo como valor por default para el motor de cálculo cuando no se
+// provee `PricingData.planes` (tests existentes, principalmente).
 export const PLANES = [
   "INDIE",
   "MEDIFEPLUS",
@@ -20,6 +25,8 @@ export const PLAN_LABELS: Record<string, string> = {
   ORO: "ORO",
   PLATINUM: "PLATINUM",
 };
+
+export type PlanRef = { code: string; nombre: string; sortOrder: number };
 
 export type Miembro = {
   tipo: TipoMiembro;
@@ -87,10 +94,14 @@ export type PricingData = {
   monotributoBrackets: Record<string, number>;
   config: Record<string, number>;
   priceListVersionId: string;
+  // M13: planes de esta versión, en el orden real del Excel ("Info" ->
+  // "Producto"). Si viene vacío, el motor cae al set estático PLANES.
+  planes?: PlanRef[];
 };
 
 export type PlanBreakdown = {
   planCode: string;
+  nombre: string; // etiqueta para mostrar (viene del Excel, ya no de un mapeo fijo)
   subtotal: number; // precio de lista, suma de integrantes
   ajusteHijos: number; // $ (negativo)
   segmentoJoven: number; // $ (negativo)

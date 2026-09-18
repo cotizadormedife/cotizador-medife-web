@@ -59,6 +59,15 @@ export async function loadPricingData(region: string, categoria: Categoria, pric
   const { data: configRows, error: configErr } = await supabase.from("pricing_config").select("key, value");
   if (configErr) throw configErr;
 
+  // M13: los planes también quedan versionados por lista (hoja "Info",
+  // columna "Producto") — antes eran un catálogo global estático.
+  const { data: planRows, error: planErr } = await supabase
+    .from("price_list_version_planes")
+    .select("code, nombre, sort_order")
+    .eq("price_list_version_id", versionId)
+    .order("sort_order");
+  if (planErr) throw planErr;
+
   const policies: DiscountPolicy[] = (policyRows ?? []).map((p: any) => ({
     id: p.id,
     slug: p.slug,
@@ -100,6 +109,7 @@ export async function loadPricingData(region: string, categoria: Categoria, pric
     monotributoBrackets: Object.fromEntries((monotributoRows ?? []).map((r: any) => [r.letra, Number(r.monto)])),
     config: Object.fromEntries((configRows ?? []).map((r: any) => [r.key, Number(r.value)])),
     priceListVersionId: versionId,
+    planes: (planRows ?? []).map((p: any) => ({ code: p.code, nombre: p.nombre, sortOrder: p.sort_order })),
   };
 }
 
