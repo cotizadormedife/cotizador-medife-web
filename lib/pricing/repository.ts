@@ -99,6 +99,15 @@ export async function loadPricingData(region: string, categoria: Categoria, pric
       .sort((a: any, b: any) => a.seq - b.seq),
   }));
 
+  // A pedido de Diego: la consulta no trae un orden garantizado (no hay
+  // columna de orden propia en discount_policies) — al mostrarse/ocultarse
+  // políticas según elegibilidad, el orden visual terminaba salteado (ej.
+  // "Opción 1, 2, 3, 4, 7, 5"). Se ordena acá, una sola vez, por nombre
+  // ("numeric: true" para que "Opción 10" quede después de "Opción 9", no
+  // entre "Opción 1" y "Opción 2"), y todo lo que consume `policies`
+  // (formulario, impresión/PDF) hereda ese orden.
+  policies.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { numeric: true, sensitivity: "base" }));
+
   return {
     prices: (priceRows ?? []).map((r: any) => ({
       ageBracketCode: r.age_bracket_code,
