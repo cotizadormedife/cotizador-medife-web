@@ -23,7 +23,9 @@ export function composicionLabel(miembros: Miembro[]): string {
 // Cronograma legible de una política — "(permanente)", "10% × 6 meses" o el
 // detalle escalonado completo ("30% × 3 meses · 20% × 2 meses · ...").
 export function cronogramaLabel(p: ActivePolicySummary): string {
-  if (p.permanente) return "(permanente)";
+  // Bug real: faltaba el porcentaje acá — a diferencia de las otras 3 ramas,
+  // esta devolvía solo "(permanente)" en vez de "10% (permanente)".
+  if (p.permanente) return `${fmtPctAbs(p.valorPct)} (permanente)`;
   if (p.schedule.length > 1) {
     return p.schedule.map((s) => `${fmtPctAbs(s.valorPct)} × ${s.months} meses`).join(" · ");
   }
