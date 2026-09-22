@@ -206,6 +206,35 @@ a {
   tr {
     break-inside: avoid;
   }
+  /* Bug real: "Ver detalle" abre un modal position:fixed con scroll propio,
+     anidado adentro de la fila de la tabla de "Mi historial" (no como hijo
+     directo de <body>). Al imprimir: (a) Chrome repite cualquier elemento
+     fixed en cada página, y (b) como el resto de la página no se ocultaba,
+     salía el historial completo (con TODAS las cotizaciones) intercalado
+     con el modal repetido — y como el modal tiene su propio overflow
+     interno, solo se imprimía lo que entraba en la pantalla (se cortaba
+     antes de terminar la proyección de cuotas y nunca llegaban los
+     legales). El modal ahora es un portal a <body>: con la clase
+     "quote-detail-modal-open" se oculta todo lo demás y el modal pasa a
+     fluir como contenido normal de página (sin fixed ni scroll propio), así
+     pagina igual que la impresión de una cotización nueva. */
+  body.quote-detail-modal-open > *:not(#quote-detail-modal-portal) {
+    display: none !important;
+  }
+  #quote-detail-modal-portal {
+    position: static !important;
+    inset: auto !important;
+    background: none !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+  #quote-detail-modal-portal > div {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+  }
   .print-hidden {
     display: none !important;
   }
