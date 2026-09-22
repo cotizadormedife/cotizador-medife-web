@@ -190,6 +190,22 @@ a {
   display: none;
 }
 @media print {
+  /* Bug real: ".table-scroll" solo declara overflow-x — la spec de CSS hace
+     que overflow-y quede en "auto" igual, así que el contenedor termina
+     siendo un scroll box de verdad. El motor de impresión de Chromium no
+     pagina bien el contenido de un overflow:auto — en vez de continuarlo en
+     la página siguiente, lo repite/fragmenta una y otra vez (por eso salían
+     ~34 páginas con casi todo duplicado, en vez de las 2 esperadas). */
+  .table-scroll {
+    overflow: visible;
+  }
+  @page {
+    margin: 12mm;
+  }
+  .card,
+  tr {
+    break-inside: avoid;
+  }
   .print-hidden {
     display: none !important;
   }

@@ -331,17 +331,15 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
       >
         <ul style={{ margin: 0, padding: "0 0 0 16px" }}>
           <li>La presente cotización no contempla casos de alto costo y baja incidencia.</li>
-          <li>La validez del presente presupuesto es de 7 días hábiles a partir de su fecha de emisión.</li>
+          <li>
+            La validez del presente presupuesto es de 7 días hábiles a partir de su fecha de emisión, sujeto a la
+            fecha de venta registrada.
+          </li>
           <li>
             Se informa que los datos personales y la documentación respaldatoria aportada por el solicitante para la
             confección de la presente cotización revisten el carácter de Declaración Jurada. En caso de falseamiento
             y/o omisión en los datos personales y/o en la documentación respaldatoria aportada, la presente
             cotización se considerará inválida.
-          </li>
-          <li>
-            La presente cotización queda expresamente sujeta a variaciones conforme actualizaciones y/o aumentos y/o
-            ajustes que pudiera autorizar la Superintendencia de Servicios de Salud, en su carácter de Autoridad de
-            Aplicación.
           </li>
           <li>
             La presente cotización se encuentra sujeta a variaciones atento a modificaciones y/o actualizaciones de
@@ -361,7 +359,10 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
             Los descuentos de Ajuste Lista Hijos y Segmento Joven se aplican únicamente sobre el precio de lista de
             los integrantes que corresponden, no sobre el total del grupo familiar.
           </li>
-          <li>La proyección de cuotas contempla el vencimiento de los descuentos temporales según su plazo y esquema escalonado.</li>
+          <li>
+            La proyección de cuotas contempla el vencimiento de los descuentos temporales según su plazo y esquema
+            escalonado. No incluye futuros aumentos que puedan aplicarse según actualizaciones de lista.
+          </li>
           <li>
             El monto del plan informado se encuentra sujeto a incrementos.{" "}
             <strong>Versión: Cotizador {meta?.vigencia}</strong>
