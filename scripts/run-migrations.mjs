@@ -18,7 +18,13 @@ const files = readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort(
 
 await client.connect();
 try {
+  // RLS: esta tabla de control no es parte de las migraciones versionadas
+  // (se crea acá mismo), así que quedaba afuera del "todas las tablas
+  // tienen RLS habilitada" — Supabase la marcó como "Table publicly
+  // accessible" (sin datos de negocio, pero igual corresponde no dejar
+  // ninguna tabla sin RLS).
   await client.query('create table if not exists _migrations (filename text primary key, applied_at timestamptz not null default now())');
+  await client.query('alter table _migrations enable row level security');
   const { rows } = await client.query('select filename from _migrations');
   const applied = new Set(rows.map((r) => r.filename));
 
