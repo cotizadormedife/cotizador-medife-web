@@ -266,7 +266,19 @@ export default function QuoteForm({
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 style={{ fontSize: 18, margin: 0 }}>DATOS DE COTIZACIÓN</h2>
-            <button type="button" className="btn-ghost" onClick={resetForm}>
+            <button
+              type="button"
+              onClick={resetForm}
+              style={{
+                background: "transparent",
+                color: "var(--text-neutral)",
+                border: "1px solid var(--border-default)",
+                borderRadius: "var(--radius-button)",
+                padding: "8px 16px",
+                fontWeight: 600,
+                fontSize: 13,
+              }}
+            >
               Nueva cotización
             </button>
           </div>
