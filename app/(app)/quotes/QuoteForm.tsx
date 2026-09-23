@@ -198,6 +198,9 @@ export default function QuoteForm({
         return s.startsWith("opcion-1") || s.startsWith("opcion-2") || s.startsWith("opcion-3");
       };
       if (checked && isUno23(id)) next = next.filter((x) => x === id || !isUno23(x));
+      // RF-94: como mucho un descuento GAF activo a la vez — tildar uno destilda los demás.
+      const isGaf = (x: string) => policyOf(x)?.grupo === "gaf";
+      if (checked && isGaf(id)) next = next.filter((x) => x === id || !isGaf(x));
       // RF-61: sin Opción 4 seleccionada, Opción 6 no es válida — se destilda sola.
       if (!next.some((x) => slugOf(x).startsWith("opcion-4"))) next = next.filter((x) => !slugOf(x).startsWith("opcion-6"));
       // RF-M10: reglas de "no acumulable" leídas del Excel (excluyeOtros/
@@ -415,28 +418,19 @@ export default function QuoteForm({
                       Origen del aporte
                       <select
                         value={m.obraSocial ?? "Medife"}
-                        onChange={(e) => updateMiembro(idx, { obraSocial: e.target.value as Miembro["obraSocial"] })}
+                        onChange={(e) => {
+                          const obraSocial = e.target.value as Miembro["obraSocial"];
+                          // RF-93: por ahora solo cotizamos Monotributo categoría A — el combo
+                          // de categoría queda oculto (no se elimina la estructura de datos
+                          // por si en el futuro se vuelve a ofrecer más de una categoría).
+                          updateMiembro(idx, { obraSocial, monotributoCat: obraSocial === "MONOTRIBUTO" ? "A" : undefined });
+                        }}
                       >
                         <option value="OBRAS SOCIALES">Obra Social</option>
                         <option value="Medife">Medifé</option>
-                        <option value="MONOTRIBUTO">Monotributo</option>
+                        <option value="MONOTRIBUTO">Monotributo (cotiza tipo A)</option>
                       </select>
                     </label>
-                    {m.obraSocial === "MONOTRIBUTO" && (
-                      <label style={{ ...labelStyle, flex: "1 1 160px" }}>
-                        Categoría
-                        <select
-                          value={m.monotributoCat ?? "A"}
-                          onChange={(e) => updateMiembro(idx, { monotributoCat: e.target.value })}
-                        >
-                          {MONOTRIBUTO_CATS.map((c) => (
-                            <option key={c} value={c}>
-                              Monotributo {c}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
                   </div>
                 </>
               )}
