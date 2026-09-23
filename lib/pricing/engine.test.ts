@@ -695,4 +695,45 @@ describe("computeQuote", () => {
     // descuento, en vez de heredarlo o romper el cálculo.
     expect(result.planes[2].total).toBeCloseTo(999999, 2);
   });
+
+  it("RF-91: Titular y Esposo/a con distinto rango se cotizan ambos al rango más alto entre los dos", () => {
+    // Ejemplo exacto de Diego: titular 0-25, esposo 51-60 → ambos se cotizan
+    // como si fueran 51-60 (solo aplica a Titular/Esposo, no a Hijo/a).
+    const input: QuoteInput = {
+      region: "AMBA",
+      categoria: "Obl",
+      procedencia: "Otros",
+      filial: "CABA",
+      miembros: [
+        { tipo: "Titular", rango: "0-25" },
+        { tipo: "Esposo/a", rango: "51-60" },
+      ],
+      selectedPolicyIds: [],
+    };
+    const data = baseData(
+      [],
+      [
+        ...priceRows("0-25", PLANES.map(() => 100)), // Titular a su rango propio — no debería usarse
+        ...priceRows("MAT-0-25", PLANES.map(() => 110)), // Esposo/a a 0-25 — tampoco debería usarse
+        ...priceRows("51-60", PLANES.map(() => 500)), // Titular pareja-ajustado a 51-60
+        ...priceRows("MAT-51-60", PLANES.map(() => 510)), // Esposo/a a su propio rango 51-60
+      ]
+    );
+    const result = computeQuote(input, data);
+    expect(result.planes[4].total).toBeCloseTo(500 + 510, 2); // PLATA — ambos al rango más alto
+  });
+
+  it("RF-91: un Titular sin Esposo/a sigue cotizando a su propio rango", () => {
+    const input: QuoteInput = {
+      region: "AMBA",
+      categoria: "Obl",
+      procedencia: "Otros",
+      filial: "CABA",
+      miembros: [{ tipo: "Titular", rango: "0-25" }],
+      selectedPolicyIds: [],
+    };
+    const data = baseData([], priceRows("0-25", PLANES.map(() => 100)));
+    const result = computeQuote(input, data);
+    expect(result.planes[4].total).toBeCloseTo(100, 2);
+  });
 });

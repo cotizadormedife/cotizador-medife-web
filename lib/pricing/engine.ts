@@ -1,7 +1,7 @@
 import { PLANES, PLAN_LABELS } from "./types";
 import type { DiscountPolicy, Miembro, PlanBreakdown, PricingData, QuoteInput, QuoteResult, CuotaProyeccion } from "./types";
 import { matchesPlanName } from "./planMatch";
-import { esHijoElegibleAjuste, getMiembroKey, rangoEfectivo } from "./memberKey";
+import { esHijoElegibleAjuste, getMiembroKey, rangoEfectivo, rangoEfectivoPareja } from "./memberKey";
 import {
   dedupeTacticosByPlan,
   findAjusteHijosPolicy,
@@ -62,8 +62,9 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
   }
 
   // 1. Precio base por integrante
+  // RF-91: Titular/Esposo/a se cotizan con el rango más alto entre los dos.
   const memberPrices = input.miembros.map((m) => {
-    const key = getMiembroKey(m.tipo, m.rango || "");
+    const key = getMiembroKey(m.tipo, rangoEfectivoPareja(m, input.miembros));
     return priceLookup(data, PLAN_CODES, key);
   });
   const subtotales = PLAN_CODES.map((_, pi) => memberPrices.reduce((s, mp) => s + mp[pi], 0));
@@ -103,14 +104,14 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
     if (f25) {
       input.miembros.forEach((m, idx) => {
         const tipoOk = isAMBA ? m.tipo === "Titular" : m.tipo === "Titular" || m.tipo === "Esposo/a";
-        if (tipoOk && rangoEfectivo(m) === "0-25") sum += memberPrices[idx][pi] * f25;
+        if (tipoOk && rangoEfectivoPareja(m, input.miembros) === "0-25") sum += memberPrices[idx][pi] * f25;
       });
     }
     if (isAMBA) {
       const f29 = planFactor(segJoven29Policy, pi);
       if (f29) {
         input.miembros.forEach((m, idx) => {
-          if (m.tipo === "Titular" && rangoEfectivo(m) === "26-35") sum += memberPrices[idx][pi] * f29;
+          if (m.tipo === "Titular" && rangoEfectivoPareja(m, input.miembros) === "26-35") sum += memberPrices[idx][pi] * f29;
         });
       }
     }

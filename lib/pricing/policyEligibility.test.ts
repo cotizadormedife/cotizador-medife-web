@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { dedupeTacticosByPlan, isCompatible } from "./policyEligibility";
-import type { DiscountPolicy } from "./types";
+import { dedupeTacticosByPlan, isCompatible, isPolicyMemberEligible } from "./policyEligibility";
+import type { DiscountPolicy, Miembro } from "./types";
 import { PLANES } from "./types";
 
 function policy(overrides: Partial<DiscountPolicy> & Pick<DiscountPolicy, "id">): DiscountPolicy {
@@ -61,6 +61,25 @@ describe("isCompatible", () => {
     const a = policy({ id: "a" });
     const b = policy({ id: "b" });
     expect(isCompatible(a, b)).toBe(true);
+  });
+});
+
+describe("isPolicyMemberEligible", () => {
+  it("RF-91: un descuento táctico por rango de edad deja de aplicar si la pareja Titular/Esposo es de rango mayor", () => {
+    // Política con rango en el slug (patrón real "dto-mes-NN-MM"), banda 26-35.
+    const p = policy({ id: "dto-mes-26-35-plata", grupo: "tactico" });
+    const titular: Miembro = { tipo: "Titular", rango: "26-35" }; // dentro de la banda por sí solo
+    const esposo: Miembro = { tipo: "Esposo/a", rango: "66+" }; // mucho mayor
+    // Antes de RF-91 esto daba elegible (el titular calificaba por su cuenta).
+    // Con el pedido de Diego, ambos pasan a considerarse "66+" — ya ninguno
+    // cae en la banda 26-35, así que el descuento deja de aplicar.
+    expect(isPolicyMemberEligible(p, [titular, esposo], true)).toBe(false);
+  });
+
+  it("un Titular sin Esposo/a sigue evaluándose por su propio rango", () => {
+    const p = policy({ id: "dto-mes-26-35-plata", grupo: "tactico" });
+    const titular: Miembro = { tipo: "Titular", rango: "26-35" };
+    expect(isPolicyMemberEligible(p, [titular], true)).toBe(true);
   });
 });
 

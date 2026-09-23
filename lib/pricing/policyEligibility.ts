@@ -1,5 +1,5 @@
 import type { DiscountPolicy, Miembro, Procedencia } from "./types";
-import { rangoEfectivo } from "./memberKey";
+import { rangoEfectivoPareja } from "./memberKey";
 
 const SUR_EXT_REGIONS = ["Sur", "Patagonia", "Bahía/MDQ"];
 
@@ -77,9 +77,10 @@ export function isPolicyMemberEligible(policy: DiscountPolicy, miembros: Miembro
     const maxAge = parseInt(ageMatch[2], 10);
     const rangeOk = miembros.some((m) => {
       if (m.tipo !== "Titular" && m.tipo !== "Esposo/a") return false;
-      if (!m.rango) return false;
-      const start = RANGO_STARTS[m.rango] ?? -1;
-      const end = RANGO_ENDS[m.rango] ?? -1;
+      // RF-91: rango efectivo ya considera la pareja Titular/Esposo (el más alto de los dos).
+      const r = rangoEfectivoPareja(m, miembros);
+      const start = RANGO_STARTS[r] ?? -1;
+      const end = RANGO_ENDS[r] ?? -1;
       if (start < 0 || end < 0) return false;
       return end >= minAge && start <= maxAge;
     });
@@ -90,7 +91,7 @@ export function isPolicyMemberEligible(policy: DiscountPolicy, miembros: Miembro
   if (policy.edadMaxTitularConyuge != null) {
     return miembros.every((m) => {
       if (m.tipo !== "Titular" && m.tipo !== "Esposo/a") return true;
-      const r = rangoEfectivo(m);
+      const r = rangoEfectivoPareja(m, miembros);
       const end = RANGO_ENDS[r] ?? 0;
       return end <= policy.edadMaxTitularConyuge!;
     });
@@ -197,10 +198,10 @@ export function findSegmentoJovenPolicies(
   const hayHijo = ctx.miembros.some((m) => m.tipo === "Hijo/a");
   const sinFamiliaAMBA = isAMBA && !hayEsposo && !hayHijo;
 
-  const hayTitJoven25 = ctx.miembros.some((m) => m.tipo === "Titular" && rangoEfectivo(m) === "0-25");
+  const hayTitJoven25 = ctx.miembros.some((m) => m.tipo === "Titular" && rangoEfectivoPareja(m, ctx.miembros) === "0-25");
   const espososInterior = !isAMBA ? ctx.miembros.filter((m) => m.tipo === "Esposo/a") : [];
-  const hayEspJoven25 = !isAMBA && espososInterior.length > 0 && espososInterior.every((m) => rangoEfectivo(m) === "0-25");
-  const hayTitJoven29 = isAMBA && sinFamiliaAMBA && ctx.miembros.some((m) => m.tipo === "Titular" && rangoEfectivo(m) === "26-35");
+  const hayEspJoven25 = !isAMBA && espososInterior.length > 0 && espososInterior.every((m) => rangoEfectivoPareja(m, ctx.miembros) === "0-25");
+  const hayTitJoven29 = isAMBA && sinFamiliaAMBA && ctx.miembros.some((m) => m.tipo === "Titular" && rangoEfectivoPareja(m, ctx.miembros) === "26-35");
 
   const interiorConEsposo = !isAMBA && espososInterior.length > 0;
   const segJovenEligible =

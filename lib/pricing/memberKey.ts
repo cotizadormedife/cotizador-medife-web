@@ -14,6 +14,19 @@ export function rangoEfectivo(m: Miembro): string {
   return m.rango || RANGOS_BY_TIPO[m.tipo][0];
 }
 
+// RF-91: Titular y Esposo/a con distinto rango de edad se cotizan ambos con
+// el rango más alto entre los dos (pedido de Diego) — no aplica a Hijo/a ni
+// Familiar a cargo, y un Titular sin Esposo/a (o viceversa) no se ve afectado.
+export function rangoEfectivoPareja(m: Miembro, miembros: Miembro[]): string {
+  if (m.tipo !== "Titular" && m.tipo !== "Esposo/a") return rangoEfectivo(m);
+  const propio = rangoEfectivo(m);
+  const pareja = miembros.find((x) => x !== m && (x.tipo === "Titular" || x.tipo === "Esposo/a"));
+  if (!pareja) return propio;
+  const orden = RANGOS_BY_TIPO.Titular;
+  const otro = rangoEfectivo(pareja);
+  return orden.indexOf(otro) > orden.indexOf(propio) ? otro : propio;
+}
+
 // Traduce (tipo, rango) a la clave usada en la tabla de precios (age_bracket code).
 // Espejo exacto de getMiembroKey() del cotizador legacy.
 export function getMiembroKey(tipo: TipoMiembro, rango: string): string {
