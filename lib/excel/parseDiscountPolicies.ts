@@ -118,6 +118,20 @@ function upper(raw: unknown): string {
   return norm(raw).toUpperCase();
 }
 
+// Slug de clasificación de una política: nombre + zona/región + categoría,
+// legible y único dentro de esta carga (no hace falta que sea global). Se usa
+// tanto para armar el slug final de cada fila como, en la segunda pasada más
+// abajo, para resolver referencias por nombre en "Comentarios" (ej. "Concatenable
+// con [otro GAF]") contra el nombre de otra política ya parseada.
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 function cellText(cell: ExcelJS.Cell): string {
   const v: any = cell.value;
   if (v === null || v === undefined) return "";
@@ -211,9 +225,16 @@ function parseComentarios(
   comentarios: string,
   warnings: string[],
   nombre: string
-): { requiereSlugPrefix: string | null; excluyeOtros: boolean; excluyeGrupo: PolicyGrupo[]; edadMaxTitularConyuge: number | null } {
+): {
+  requiereSlugPrefix: string | null;
+  requiereNombreRef: string | null;
+  excluyeOtros: boolean;
+  excluyeGrupo: PolicyGrupo[];
+  edadMaxTitularConyuge: number | null;
+} {
   const result = {
     requiereSlugPrefix: null as string | null,
+    requiereNombreRef: null as string | null,
     excluyeOtros: false,
     excluyeGrupo: [] as PolicyGrupo[],
     edadMaxTitularConyuge: null as number | null,
@@ -245,6 +266,19 @@ function parseComentarios(
     // diferencia de "Concatenable/Combinable con la opción N" (arriba), acá
     // NO hay que esperar a que termine el plazo de otra. Sin flag adicional.
     matchedAlgo = true;
+  } else {
+    // A pedido de Diego: "Concatenable/Combinable con la opción N" (arriba)
+    // solo cubre referencias a un Descuento Estratégico numerado — pero
+    // cualquier política (incluido otro GAF) puede pasar a depender de otra
+    // por nombre en una carga futura (ej. "Concatenable con PRESTADORES
+    // MEDIFE AMBA"). Acá solo se captura el nombre referenciado — se resuelve
+    // contra el resto de las políticas de esta misma carga en una segunda
+    // pasada, después de parsear todas las filas (parseDiscountPolicies).
+    const nombreRefMatch = text.match(/concatenable con (.+)|combinable con (.+)/i);
+    if (nombreRefMatch) {
+      result.requiereNombreRef = (nombreRefMatch[1] ?? nombreRefMatch[2]).trim().replace(/[.;]+$/, "");
+      matchedAlgo = true;
+    }
   }
   const edadMatch = text.match(/hasta\s*(\d+)\s*años/i);
   if (edadMatch && /titular|c[oó]nyuge|\bgf\b|grupo familiar/i.test(text)) {
@@ -285,6 +319,12 @@ export async function parseDiscountPolicies(
 
   const planColumns = mapPlanColumns(sheet, planes, warnings);
   const slugCount: Record<string, number> = {};
+  // Referencias por nombre en "Comentarios" (ej. "Concatenable con [otro
+  // GAF]") pendientes de resolver contra el resto de las políticas de esta
+  // misma carga — recién se puede intentar una vez que todas las filas
+  // están parseadas (la referencia puede apuntar a una fila anterior o
+  // posterior en la hoja).
+  const pendingNombreRefs: Array<{ policy: ParsedPolicy; ref: string }> = [];
 
   for (let r = FIRST_DATA_ROW; r <= sheet.rowCount; r++) {
     const row = sheet.getRow(r);
@@ -389,7 +429,7 @@ export async function parseDiscountPolicies(
     const combinacion =
       grupo === "estrategico" || grupo === "tactico" || grupo === "gaf"
         ? parseComentarios(comentarios, warnings, descripcion)
-        : { requiereSlugPrefix: null, excluyeOtros: false, excluyeGrupo: [] as PolicyGrupo[], edadMaxTitularConyuge: null };
+        : { requiereSlugPrefix: null, requiereNombreRef: null, excluyeOtros: false, excluyeGrupo: [] as PolicyGrupo[], edadMaxTitularConyuge: null };
 
     // "concatenable" en el motor significa "se aplica recién después de que
     // termine el plazo de las políticas no concatenables" — aplica solo a
@@ -439,15 +479,6 @@ export async function parseDiscountPolicies(
       warnings.push(`"${descripcion}": las columnas de plan vinieron en 0 pese a que el descuento tiene un valor (${(valorPct * 100).toFixed(1)}%) — se aplicó a todos los planes salvo INDIE (mismo criterio que el resto de "Descuento Estratégico"), revisar si corresponde.`);
     }
 
-    // Slug de clasificación: nombre + zona/región + categoría, legible y
-    // único dentro de esta carga (no hace falta que sea global).
-    const slugify = (s: string) =>
-      s
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[̀-ͯ]/g, "")
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
     const slugParts = [slugify(descripcion || tipoRaw)];
     if (zonaFilial) slugParts.push(slugify(zonaFilial));
     else if (region && region !== "Nac") slugParts.push(slugify(region));
@@ -460,7 +491,7 @@ export async function parseDiscountPolicies(
       slugCount[slug] = 0;
     }
 
-    policies.push({
+    const newPolicy: ParsedPolicy = {
       slug,
       nombre: descripcion || tipoRaw,
       tipo: mapTipo(grupo),
@@ -482,7 +513,29 @@ export async function parseDiscountPolicies(
       fuenteComentario: comentarios || null,
       planRules,
       schedule,
-    });
+    };
+    policies.push(newPolicy);
+    if (combinacion.requiereNombreRef) pendingNombreRefs.push({ policy: newPolicy, ref: combinacion.requiereNombreRef });
+  }
+
+  // A pedido de Diego: una política (típicamente otro GAF) puede volverse
+  // concatenable con cualquier otra por nombre, no solo con un Descuento
+  // Estratégico numerado — se resuelve acá, comparando el nombre referenciado
+  // (accent/case-insensitive, vía el mismo slugify que arma los slugs) contra
+  // el nombre de cada política ya parseada de esta carga. Si no hay ningún
+  // match, se importa sin la regla especial y se avisa para revisión manual
+  // — nunca se asume una combinación en silencio.
+  for (const { policy, ref } of pendingNombreRefs) {
+    const refSlug = slugify(ref);
+    const target = policies.find((p) => p !== policy && slugify(p.nombre) === refSlug);
+    if (target) {
+      policy.requiereSlugPrefix = slugify(target.nombre);
+      policy.concatenable = true;
+    } else {
+      warnings.push(
+        `"${policy.nombre}": Comentarios dice "concatenable/combinable con ${ref}" pero no se encontró ninguna otra política con ese nombre en esta carga — se importó sin la regla de combinación, revisar manualmente.`
+      );
+    }
   }
 
   const porGrupo: Record<string, number> = {};

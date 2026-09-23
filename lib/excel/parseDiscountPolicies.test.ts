@@ -274,6 +274,35 @@ describe("parseDiscountPolicies", () => {
     expect(p2.concatenable).toBe(true);
   });
 
+  it("un GAF puede volverse concatenable con otro GAF por nombre (no solo con una opción numerada)", async () => {
+    // "PRESTADORES MEDIFE AMBA" es la fila `gaf`; un GAF nuevo referencia su
+    // nombre tal cual en Comentarios, en vez de "la opción N".
+    const gafDependiente: Row = { ...gafSur, descripcion: "GAF NUEVO", comentarios: "Concatenable con PRESTADORES MEDIFE AMBA" };
+    const buf = await buildWorkbook([gaf, gafDependiente]);
+    const { policies, report } = await parseDiscountPolicies(buf, [], TEST_PLANES);
+
+    const nuevo = policies.find((p) => p.nombre === "GAF NUEVO")!;
+    expect(nuevo.requiereSlugPrefix).toBe("prestadores-medife-amba");
+    expect(nuevo.concatenable).toBe(true);
+    expect(report.warnings.some((w) => w.includes("GAF NUEVO"))).toBe(false);
+
+    // El slug real de la política referenciada arranca con ese mismo prefijo
+    // (mismo mecanismo que "opcion-4" con sus variantes regionales).
+    const referenciado = policies.find((p) => p.nombre === "PRESTADORES MEDIFE AMBA")!;
+    expect(referenciado.slug.startsWith(nuevo.requiereSlugPrefix!)).toBe(true);
+  });
+
+  it("referencia por nombre a una política inexistente: se importa sin la regla y queda un warning explícito", async () => {
+    const gafRoto: Row = { ...gaf, descripcion: "GAF ROTO", comentarios: "Concatenable con ALGO QUE NO EXISTE" };
+    const buf = await buildWorkbook([gafRoto]);
+    const { policies, report } = await parseDiscountPolicies(buf, [], TEST_PLANES);
+
+    const p = policies.find((p) => p.nombre === "GAF ROTO")!;
+    expect(p.requiereSlugPrefix).toBeNull();
+    expect(p.concatenable).toBe(false);
+    expect(report.warnings.some((w) => w.includes("GAF ROTO") && w.includes("ALGO QUE NO EXISTE"))).toBe(true);
+  });
+
   it("Dto Táctico con exclusión de grupo Estratégico", async () => {
     const buf = await buildWorkbook([dtoIndie]);
     const { policies } = await parseDiscountPolicies(buf, [], TEST_PLANES);
