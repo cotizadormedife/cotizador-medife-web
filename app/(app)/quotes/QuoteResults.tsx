@@ -63,8 +63,17 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
   }
 
   const catLabel = meta?.categoria === "Vol" ? "Voluntario" : meta?.categoria === "Obl" ? "Obligatorio" : meta?.categoria;
-  const hasAjusteHijos = result.usoInterno.ajusteHijosPct.some((v) => v !== null && v > 0);
-  const hasSegmentoJoven = result.usoInterno.segmentoJovenPct.some((v) => v !== null && v > 0);
+  // Bug real: cotizaciones viejas no tienen estos dos campos como array por
+  // plan — las primeras versiones (≤ 17) no los guardaban en absoluto, y las
+  // más viejas todavía (≤ 1) guardaban un solo número de referencia (previo
+  // a que "uso interno" mostrara un valor por cada plan). Sin el respaldo,
+  // .some/.map sobre algo que no es array rompía toda la pantalla.
+  const normalizeUsoInterno = (v: unknown): (number | null)[] =>
+    Array.isArray(v) ? v : typeof v === "number" ? result.planes.map(() => v) : result.planes.map(() => null);
+  const ajusteHijosPct = normalizeUsoInterno(result.usoInterno.ajusteHijosPct);
+  const segmentoJovenPct = normalizeUsoInterno(result.usoInterno.segmentoJovenPct);
+  const hasAjusteHijos = ajusteHijosPct.some((v) => v !== null && v > 0);
+  const hasSegmentoJoven = segmentoJovenPct.some((v) => v !== null && v > 0);
 
   const composicion = meta?.miembros ? composicionLabel(meta.miembros) : "Grupo Familiar";
   const noAutoPolicies = result.activePolicies.filter((p) => !p.automatica);
@@ -197,7 +206,7 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
                 {hasAjusteHijos && (
                   <tr>
                     <td style={{ ...td, textAlign: "left" }}>Dto. Ajuste Hijos</td>
-                    {result.usoInterno.ajusteHijosPct.map((v, i) => (
+                    {ajusteHijosPct.map((v, i) => (
                       <td key={i} style={td}>
                         {fmtUsoInternoPct(v)}
                       </td>
@@ -207,7 +216,7 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
                 {hasSegmentoJoven && (
                   <tr>
                     <td style={{ ...td, textAlign: "left" }}>Dto. Segmento Joven</td>
-                    {result.usoInterno.segmentoJovenPct.map((v, i) => (
+                    {segmentoJovenPct.map((v, i) => (
                       <td key={i} style={td}>
                         {fmtUsoInternoPct(v)}
                       </td>
@@ -312,7 +321,10 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
           <tbody>
             {result.proyeccionCuotas.map((c) => (
               <Fragment key={c.month}>
-                {c.cambios.map((cambio, ci) => (
+                {/* Bug real: cotizaciones más viejas que RF-M11 no tienen
+                    "cambios" guardado en absoluto (no solo vacío) — sin el
+                    respaldo, .map sobre undefined rompía toda la pantalla. */}
+                {(c.cambios ?? []).map((cambio, ci) => (
                   <tr key={`cambio-${ci}`} className="print-only-row cambio-row">
                     <td colSpan={result.planes.length + 1} style={{ ...td, textAlign: "left" }}>
                       ▶ {cambioLabel(cambio, c.month)}

@@ -1,6 +1,8 @@
 import type { ActivePolicySummary, Miembro } from "@/lib/pricing/types";
 
-const fmtPctAbs = (n: number) => `${Math.round(Math.abs(n) * 100)}%`;
+// Bug real: cotizaciones viejas (≤ 23) no tienen "valorPct" guardado para
+// alguna política — sin el respaldo a 0, salía "NaN%" en vez de un número.
+const fmtPctAbs = (n: number | null | undefined) => `${Math.round(Math.abs(n ?? 0) * 100)}%`;
 
 // RF-M11: texto de composición del grupo familiar para la fila "Grupo
 // Familiar" del PDF de cotización (ej. "Matrimonio (36−40) + 1 Hijo/a").
@@ -26,8 +28,12 @@ export function cronogramaLabel(p: ActivePolicySummary): string {
   // Bug real: faltaba el porcentaje acá — a diferencia de las otras 3 ramas,
   // esta devolvía solo "(permanente)" en vez de "10% (permanente)".
   if (p.permanente) return `${fmtPctAbs(p.valorPct)} (permanente)`;
-  if (p.schedule.length > 1) {
-    return p.schedule.map((s) => `${fmtPctAbs(s.valorPct)} × ${s.months} meses`).join(" · ");
+  // Bug real: cotizaciones viejas (≤ 146) no tienen "schedule" guardado en
+  // absoluto para políticas sin cronograma escalonado — sin el respaldo,
+  // p.schedule.length rompía toda la pantalla de "Ver detalle".
+  const schedule = p.schedule ?? [];
+  if (schedule.length > 1) {
+    return schedule.map((s) => `${fmtPctAbs(s.valorPct)} × ${s.months} meses`).join(" · ");
   }
   if (p.plazoMeses != null) return `${fmtPctAbs(p.valorPct)} × ${p.plazoMeses} meses`;
   return fmtPctAbs(p.valorPct);
@@ -38,7 +44,7 @@ export function cronogramaLabel(p: ActivePolicySummary): string {
 // ej. "Oro 36 a 65 años" — en vez de un "X% x N"; ya se usa así en el
 // checkbox de selección de descuentos) + el texto crudo de "Comentarios".
 export function condicionLabel(p: ActivePolicySummary): string {
-  const esCronograma = p.schedule.length > 0 || (p.detalle != null && /\d+%/.test(p.detalle));
+  const esCronograma = (p.schedule ?? []).length > 0 || (p.detalle != null && /\d+%/.test(p.detalle));
   const scopeFragment = !esCronograma ? p.detalle : null;
   const fragments = [scopeFragment, p.fuenteComentario].filter((s): s is string => Boolean(s && s.trim()));
   return fragments.length > 0 ? fragments.join(" · ") : "—";

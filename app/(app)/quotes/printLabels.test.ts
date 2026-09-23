@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cronogramaLabel, origenLabel } from "./printLabels";
+import { condicionLabel, cronogramaLabel, origenLabel } from "./printLabels";
 import type { ActivePolicySummary, Miembro } from "@/lib/pricing/types";
 
 const basePolicy: ActivePolicySummary = {
@@ -31,6 +31,20 @@ describe("cronogramaLabel", () => {
 
   it("plazo fijo sin escalonado: 'X% × N meses'", () => {
     expect(cronogramaLabel({ ...basePolicy, plazoMeses: 6, valorPct: -0.1 })).toBe("10% × 6 meses");
+  });
+
+  it("cotización vieja sin 'schedule' guardado (bug real): no rompe, cae al plazo fijo", () => {
+    const { schedule, ...rest } = basePolicy;
+    const p = { ...rest, plazoMeses: 6, valorPct: -0.1 } as unknown as ActivePolicySummary;
+    expect(cronogramaLabel(p)).toBe("10% × 6 meses");
+  });
+});
+
+describe("condicionLabel", () => {
+  it("cotización vieja sin 'schedule' guardado (bug real): no rompe, usa 'detalle'", () => {
+    const { schedule, ...rest } = basePolicy;
+    const p = { ...rest, detalle: "Oro 36 a 65 años" } as unknown as ActivePolicySummary;
+    expect(condicionLabel(p)).toBe("Oro 36 a 65 años");
   });
 });
 
