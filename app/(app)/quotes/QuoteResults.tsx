@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import type { Miembro, QuoteResult } from "@/lib/pricing/types";
+import type { Miembro, PlanBreakdown, QuoteResult } from "@/lib/pricing/types";
+import { PLAN_LABELS } from "@/lib/pricing/types";
 import { cambioLabel, composicionLabel, condicionLabel, cronogramaLabel, origenLabel } from "./printLabels";
 
 export const fmtMoney = (n: number) =>
@@ -10,6 +11,13 @@ export const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${Math.round(n * 100)}
 const fmtUsoInternoPct = (n: number | null) => (n === null ? "–" : `${(n * 100).toFixed(2)}%`);
 // RF-50: número de cotización completado con ceros a la izquierda hasta 12 dígitos.
 export const fmtQuoteNumber = (n: number) => String(n).padStart(12, "0");
+// Bug real: las cotizaciones calculadas antes de que los planes fueran
+// dinámicos (RF-82) tienen guardado en la base un `output` sin el campo
+// "nombre" por plan — result.planes[i].nombre queda undefined, y usarlo
+// directo (ej. p.nombre.toUpperCase()) rompía la pantalla de "Ver detalle"
+// para cualquier cotización vieja. Se resuelve con este respaldo al
+// catálogo estático de siempre, sin tocar los datos ya guardados.
+const planName = (p: PlanBreakdown) => p.nombre ?? PLAN_LABELS[p.planCode] ?? p.planCode;
 
 export type QuoteResultsMeta = {
   numero?: number;
@@ -27,7 +35,7 @@ export type QuoteResultsMeta = {
 export default function QuoteResults({ result, meta }: { result: QuoteResult; meta?: QuoteResultsMeta }) {
   // M13: los planes ya no tienen una posición fija — PLATA se ubica por
   // nombre dentro de esta cotización puntual, en vez de asumir el índice 4.
-  const plataIdx = Math.max(0, result.planes.findIndex((p) => p.nombre.toUpperCase() === "PLATA"));
+  const plataIdx = Math.max(0, result.planes.findIndex((p) => planName(p).toUpperCase() === "PLATA"));
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selection, setSelection] = useState<Set<number>>(new Set(result.planes.map((_, i) => i)));
   const [hiddenPlans, setHiddenPlans] = useState<Set<number>>(new Set());
@@ -153,7 +161,7 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
               textAlign: "center",
             }}
           >
-            <div style={{ fontSize: 12, color: "var(--text-neutral)", fontWeight: 700 }}>{p.nombre}</div>
+            <div style={{ fontSize: 12, color: "var(--text-neutral)", fontWeight: 700 }}>{planName(p)}</div>
             <div className="mono" style={{ fontSize: 20, fontWeight: 700, margin: "8px 0" }}>{fmtMoney(p.total)}</div>
             <div style={{ fontSize: 11, color: "var(--text-neutral)" }}>1ª cuota</div>
             {p.descuentoComercialPct !== 0 && (
@@ -180,7 +188,7 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
                   <th style={th}>Concepto</th>
                   {result.planes.map((p) => (
                     <th key={p.planCode} style={th}>
-                      {p.nombre}
+                      {planName(p)}
                     </th>
                   ))}
                 </tr>
@@ -225,7 +233,7 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
               <th style={th}>Concepto</th>
               {result.planes.map((p, i) => (
                 <th key={p.planCode} style={th} className={hiddenPlans.has(i) ? "plan-col-hidden" : undefined}>
-                  {p.nombre}
+                  {planName(p)}
                 </th>
               ))}
             </tr>
@@ -296,7 +304,7 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
               <th style={th}>Cuota</th>
               {result.planes.map((p, i) => (
                 <th key={p.planCode} style={th} className={hiddenPlans.has(i) ? "plan-col-hidden" : undefined}>
-                  {p.nombre}
+                  {planName(p)}
                 </th>
               ))}
             </tr>
@@ -416,7 +424,7 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
                     onChange={(e) => toggleSelection(i, e.target.checked)}
                     style={{ width: "auto", minHeight: 0, accentColor: "var(--brand-orange)" }}
                   />
-                  <span style={{ flex: 1 }}>{p.nombre}</span>
+                  <span style={{ flex: 1 }}>{planName(p)}</span>
                   <span style={{ fontWeight: 600 }}>{fmtMoney(p.total)}</span>
                 </label>
               ))}
