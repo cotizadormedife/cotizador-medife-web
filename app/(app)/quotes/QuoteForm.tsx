@@ -218,6 +218,28 @@ export default function QuoteForm({
     });
   }
 
+  // RF-92: "Nueva cotización" — vuelve todos los campos a su valor default
+  // (el mismo que tendría un ingreso nuevo a /quotes, sin re-cotizar), sin
+  // recargar la página. Usa la lista/región/filial default de la vigencia
+  // actual, no la del "initial" con el que se haya abierto el formulario.
+  function resetForm() {
+    const defaultVersionId = vigenciaSelection.actual?.id ?? priceListVersions[0]?.id ?? "";
+    const defaultBundle = bundlesByVersionId[defaultVersionId] ?? EMPTY_BUNDLE;
+    const defaultRegion = defaultBundle.regions[0]?.code ?? "AMBA";
+    const defaultFilial = defaultBundle.filiales.find((f) => f.region_code === defaultRegion)?.code ?? "";
+    setVendedor(vendedorDefault);
+    setAsociado("");
+    setPriceListVersionId(defaultVersionId);
+    setRegion(defaultRegion);
+    setCategoria("Vol");
+    setProcedencia("Otros");
+    setFilial(defaultFilial);
+    setMiembros([{ tipo: "Titular", rango: "36-40" }]);
+    setSelectedPolicyIds([]);
+    setState(null);
+    window.scrollTo(0, 0);
+  }
+
   function submit() {
     setState(null);
     startTransition(async () => {
@@ -242,7 +264,12 @@ export default function QuoteForm({
     <div className="quote-layout">
       <div className="print-hidden">
         <div className="card">
-          <h2 style={{ fontSize: 18, margin: "0 0 16px" }}>DATOS DE COTIZACIÓN</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h2 style={{ fontSize: 18, margin: 0 }}>DATOS DE COTIZACIÓN</h2>
+            <button type="button" className="btn-ghost" onClick={resetForm}>
+              Nueva cotización
+            </button>
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Lista a utilizar</div>
