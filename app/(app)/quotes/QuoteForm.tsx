@@ -126,9 +126,22 @@ export default function QuoteForm({
     );
   }
 
-  function rangosFor(tipo: TipoMiembro): string[] {
-    if (tipo === "Hijo/a") return region === "AMBA" ? RANGOS_BY_TIPO["Hijo/a"] : RANGOS_HIJO_INTERIOR;
-    return RANGOS_BY_TIPO[tipo];
+  // RF-96: en el interior, "Hijo 1" representa siempre al hijo de menor edad
+  // del grupo — como mucho un integrante puede tenerlo, y "Hijo 2" no se
+  // puede elegir hasta que algún otro integrante ya sea "Hijo 1" (para no
+  // cargar un Hijo 2 "suelto" sin su Hijo 1). "Hijo Mayor a Cargo" no tiene
+  // esta restricción. `idx` es el propio integrante (se excluye de la
+  // comprobación contra "los demás"); se omite al calcular el default de un
+  // integrante nuevo, que todavía no está en `miembros`.
+  function rangosFor(tipo: TipoMiembro, idx?: number): string[] {
+    if (tipo !== "Hijo/a") return RANGOS_BY_TIPO[tipo];
+    if (region === "AMBA") return RANGOS_BY_TIPO["Hijo/a"];
+    const hayHijo1Otro = miembros.some((m, i) => i !== idx && m.tipo === "Hijo/a" && m.rango === "Hijo 1");
+    return RANGOS_HIJO_INTERIOR.filter((r) => {
+      if (r === "Hijo 1") return !hayHijo1Otro;
+      if (r === "Hijo 2") return hayHijo1Otro;
+      return true;
+    });
   }
 
   // RF-63: el Integrante 1 es siempre el único Titular — "Titular" se saca
@@ -153,7 +166,7 @@ export default function QuoteForm({
     setMiembros((ms) => ms.map((m, i) => (i === idx ? { ...m, ...patch } : m)));
   }
   function onTipoChange(idx: number, tipo: TipoMiembro) {
-    updateMiembro(idx, { tipo, rango: rangosFor(tipo)[0] ?? "" });
+    updateMiembro(idx, { tipo, rango: rangosFor(tipo, idx)[0] ?? "" });
   }
 
   const selectable = useMemo(() => {
@@ -395,7 +408,7 @@ export default function QuoteForm({
                 <label style={{ ...labelStyle, flex: "1 1 160px" }}>
                   Rango de edad
                   <select value={m.rango} onChange={(e) => updateMiembro(idx, { rango: e.target.value })}>
-                    {rangosFor(m.tipo).map((r) => (
+                    {rangosFor(m.tipo, idx).map((r) => (
                       <option key={r} value={r}>
                         {r}
                       </option>
