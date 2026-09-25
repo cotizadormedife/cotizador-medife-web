@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import {
+  approveUserAction,
   deleteUserAction,
   reactivateUserAction,
   promoteToAdminAction,
@@ -137,6 +138,15 @@ export default function UserRow({
       </td>
       <td style={td}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {/* RF-98: un usuario "rejected" (rechazado desde "Pendientes de
+              aprobación") desaparece de esa lista y antes no tenía forma de
+              volver a aprobarse desde "Todos los usuarios" — quedaba
+              bloqueado sin acceso a la aplicación de forma permanente. */}
+          {!user.disabled_at && user.status === "rejected" && (
+            <button type="button" className="btn-primary" onClick={() => run(() => approveUserAction(user.id))} disabled={pending} style={{ padding: "8px 14px", fontSize: 13, minHeight: 0 }}>
+              Aprobar
+            </button>
+          )}
           {!user.disabled_at && user.status === "approved" && (
             <button type="button" onClick={resendInvite} disabled={pending}>
               Generar link de primer ingreso
