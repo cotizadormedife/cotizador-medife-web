@@ -93,7 +93,7 @@ Este es el proceso que se siguió consistentemente durante toda la sesión, no e
 5. Push a los dos remotos, deploy manual al entorno viejo, confirmar que el nuevo se desplegó solo.
 6. **Actualizar documentación** (ver abajo) — esto es una directiva explícita de Diego, no opcional: Documento Funcional y Documento de Versionado en cada cambio funcional; Documento DER en cada cambio de estructura de base de datos, por menor que sea.
 
-El numerado de RF sigue una única secuencia global — el siguiente disponible después de este documento es **RF-98**. Antes de asignar uno nuevo, confirmar el último real con:
+El numerado de RF sigue una única secuencia global — el siguiente disponible después de este documento es **RF-100**. Antes de asignar uno nuevo, confirmar el último real con:
 ```bash
 git log --oneline | grep -oE "RF-[0-9]+" | sort -t- -k2 -n -u | tail -5
 ```
@@ -135,11 +135,10 @@ Reglas de negocio no obvias agregadas después del diseño inicial (ver el chang
 - **Documento_Tecnico** — infraestructura actual (los dos entornos de la tabla de arriba), pendientes de infra.
 - **Documento_DER_Modelo_de_Datos** — diagrama + diccionario de datos de las 21+ tablas.
 
-**Directiva explícita de Diego, memorizada para toda sesión de Claude en este proyecto:** actualizar Funcional/Versionado en cada cambio funcional, y el DER en cada cambio de estructura de base de datos por menor que sea. **Gap conocido al momento de escribir esto**: un audit encontró que Funcional y Versionado no tenían nada cargado entre RF-83 y RF-90 (quedó pendiente confirmar con Diego si se backfillea). Revisar el estado real antes de asumir que están al día — pedirle a Claude que los chequee de nuevo si pasó tiempo.
+**Directiva explícita de Diego, memorizada para toda sesión de Claude en este proyecto:** actualizar Funcional/Versionado en cada cambio funcional, y el DER en cada cambio de estructura de base de datos por menor que sea. Un audit de los 4 documentos (25/09/2026) encontró y corrigió un backfill grande: faltaban RF-49, 62, 67, 68, 72, 80, 81, 83 a 90 y 92 a 97 en Funcional, y 6 filas de versión (v1.58 a v1.63) en Versionado; también se agregó a Documento Técnico la descripción del segundo entorno (viejo) que faltaba. Documento_DER se confirmó al día, sin gaps. **Esto quedó al día hasta RF-97/v1.63** — antes de asumir que sigue así, pedirle a Claude que chequee de nuevo si pasó tiempo (todo cambio desde entonces, incluido RF-98/RF-99, puede no estar todavía reflejado ahí si no se pidió explícitamente actualizarlo).
 
 ## Pendientes conocidos (no resueltos al momento de escribir esto)
 
-- Backfill de RF-83 a RF-90 en Documento Funcional/Versionado (mencionado arriba).
 - SMTP del proyecto Supabase nuevo sigue sin configurar (usa el mailer gratuito de Supabase, rate limit bajo) — el viejo sí tiene SMTP propio (Gmail) configurado.
 - Posible inconsistencia encontrada de paso (no confirmada, no tocada): el importador nunca asigna `tipo: "ucc"` a ninguna política real (`parseDiscountPolicies.ts`), así que la política "UCC" del Excel queda mezclada con el resto de los descuentos GAF en `engine.ts` y quedaría gateada por "sin otro descuento comercial activo" en vez de aplicar siempre como sugiere su nombre. Confirmar con Diego contra un Excel real antes de tocar nada.
 - Diego mencionó una vez una segunda migración "solo de datos" a futuro — no la volvió a pedir, no es urgente.
@@ -175,6 +174,8 @@ Desde RF-44 en adelante, un renglón por commit (fecha, qué cambió):
 - 2026-09-23 — El importador entiende "concatenable con [nombre]" apuntando a cualquier política, no solo a una Opción numerada (RF-95)
 - 2026-09-24 — **En el interior, Hijo 2 no se puede elegir antes que Hijo 1, y Hijo 1 es único por grupo** (RF-96)
 - 2026-09-25 — **Botón "Eliminar" empresa/broker, bloqueado si tiene vendedores/admin asociados** (RF-97)
+- 2026-09-25 — Botón "Aprobar" en "Todos los usuarios" para revertir un usuario `rejected` (antes quedaba bloqueado sin ninguna acción disponible en la interfaz) (RF-98)
+- 2026-09-25 — **El % de "Uso Interno" (Ajuste Hijos / Segmento Joven) se calcula sobre el precio sin el recargo geográfico**, no sobre el precio de lista — el sistema de Medife donde se carga ese % no tiene el recargo en su propia base (RF-99)
 
 ## Convenciones de esta sesión (para mantener consistencia)
 
