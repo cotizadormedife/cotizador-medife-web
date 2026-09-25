@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createEmpresaAction, updateEmpresaAction, type EmpresaFormState } from "./actions";
+import {
+  createEmpresaAction,
+  updateEmpresaAction,
+  deleteEmpresaAction,
+  type EmpresaFormState,
+  type EmpresaUsuarioBloqueante,
+} from "./actions";
 import type { Empresa } from "@/lib/empresas";
 import { MEDIFE_EMPRESA_ID } from "@/lib/empresas";
 
@@ -80,6 +86,9 @@ function EmpresaRow({ empresa }: { empresa: Empresa }) {
   const [direccion, setDireccion] = useState(empresa.direccion);
   const [state, setState] = useState<EmpresaFormState | null>(null);
   const [pending, startTransition] = useTransition();
+  const [deleting, startDeleteTransition] = useTransition();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [usuariosBloqueantes, setUsuariosBloqueantes] = useState<EmpresaUsuarioBloqueante[] | null>(null);
   const isMedife = empresa.id === MEDIFE_EMPRESA_ID;
 
   function save() {
@@ -88,6 +97,22 @@ function EmpresaRow({ empresa }: { empresa: Empresa }) {
       const res = await updateEmpresaAction(empresa.id, { nombre, direccion });
       setState(res);
       if (res.ok) setEditing(false);
+    });
+  }
+
+  // RF-97: solo se acepta eliminar una empresa sin ningún vendedor/admin
+  // asociado — si tiene, se muestra una ventana con la lista completa para
+  // que el super_admin sepa a quién eliminar primero.
+  function remove() {
+    if (!window.confirm(`¿Eliminar "${empresa.nombre}"? Esta acción no se puede deshacer.`)) return;
+    setDeleteError(null);
+    setUsuariosBloqueantes(null);
+    startDeleteTransition(async () => {
+      const res = await deleteEmpresaAction(empresa.id);
+      if (!res.ok) {
+        setDeleteError(res.error);
+        setUsuariosBloqueantes(res.usuarios ?? null);
+      }
     });
   }
 
@@ -100,9 +125,29 @@ function EmpresaRow({ empresa }: { empresa: Empresa }) {
         </td>
         <td style={td}>{empresa.direccion}</td>
         <td style={td}>
-          <button type="button" onClick={() => setEditing(true)} style={{ padding: "6px 12px", fontSize: 12, minHeight: 0 }}>
-            Editar
-          </button>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button type="button" onClick={() => setEditing(true)} style={{ padding: "6px 12px", fontSize: 12, minHeight: 0 }}>
+              Editar
+            </button>
+            {!isMedife && (
+              <button type="button" onClick={remove} disabled={deleting} style={{ padding: "6px 12px", fontSize: 12, minHeight: 0 }}>
+                {deleting ? "Eliminando..." : "Eliminar"}
+              </button>
+            )}
+          </div>
+          {deleteError && !usuariosBloqueantes && (
+            <p role="alert" style={{ color: "#c0392b", fontSize: 12, margin: "4px 0 0" }}>
+              {deleteError}
+            </p>
+          )}
+          {usuariosBloqueantes && (
+            <EmpresaConUsuariosModal
+              empresaNombre={empresa.nombre}
+              mensaje={deleteError ?? ""}
+              usuarios={usuariosBloqueantes}
+              onClose={() => setUsuariosBloqueantes(null)}
+            />
+          )}
         </td>
       </tr>
     );
@@ -132,5 +177,58 @@ function EmpresaRow({ empresa }: { empresa: Empresa }) {
         </div>
       </td>
     </tr>
+  );
+}
+
+// RF-97: ventana de error que se abre cuando se intenta eliminar una empresa
+// que todavía tiene vendedores/admin — lista a cada uno para que el
+// super_admin sepa a quién eliminar primero (mismo patrón de diálogo que
+// EditProfileModal).
+function EmpresaConUsuariosModal({
+  empresaNombre,
+  mensaje,
+  usuarios,
+  onClose,
+}: {
+  empresaNombre: string;
+  mensaje: string;
+  usuarios: EmpresaUsuarioBloqueante[];
+  onClose: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "24px 16px", zIndex: 100, overflowY: "auto" }}
+    >
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 14, padding: 24, maxWidth: 480, width: "100%", marginBottom: 40 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+          <h2 style={{ fontSize: 18, margin: 0 }}>No se puede eliminar &quot;{empresaNombre}&quot;</h2>
+          <button type="button" onClick={onClose} style={{ padding: "6px 12px", minHeight: 0 }}>
+            Cerrar
+          </button>
+        </div>
+        <p style={{ color: "#c0392b", fontSize: 14, margin: "0 0 14px" }}>{mensaje}</p>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr>
+              <th style={th}>Nombre</th>
+              <th style={th}>Email</th>
+              <th style={th}>Rol</th>
+            </tr>
+          </thead>
+          <tbody>
+            {usuarios.map((u) => (
+              <tr key={u.email}>
+                <td style={td}>{u.nombre} {u.apellido}</td>
+                <td style={td}>{u.email}</td>
+                <td style={td}>{u.role}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
