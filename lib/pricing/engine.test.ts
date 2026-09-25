@@ -723,6 +723,53 @@ describe("computeQuote", () => {
     expect(result.planes[4].total).toBeCloseTo(500 + 510, 2); // PLATA — ambos al rango más alto
   });
 
+  it("RF-99: el % de Uso Interno (Segmento Joven) se calcula sobre el precio SIN el recargo geográfico, no sobre el precio de lista", () => {
+    // Caso real de Diego: Patagonia/Comahue, Obligatorio, Segmento Joven
+    // h/25 interior (-26%) — el recargo de Comahue en Obligatorio es +16%,
+    // ya incorporado en subtotales[]. El % de Uso Interno debe dar 26%×1.16
+    // = 30,16% (no 26%), porque el sistema de Medife donde se carga ese %
+    // no tiene el recargo en su propia base.
+    const input: QuoteInput = {
+      region: "Patagonia",
+      categoria: "Obl",
+      procedencia: "comprobable",
+      filial: "Comahue",
+      miembros: [{ tipo: "Titular", rango: "0-25" }],
+      selectedPolicyIds: [],
+    };
+    const data = baseData([segJoven25InteriorPolicy], priceRows("0-25", PLANES.map(() => 200000)));
+    const result = computeQuote(input, data);
+    const pi = 4; // PLATA
+    expect(result.recargoInfo?.pct).toBeCloseTo(0.16, 4);
+    // -26% sobre 200.000 (con recargo) = -52.000; contra 200.000/1.16 =
+    // 172.413,79 (sin recargo) da 30,16%, no 26%.
+    expect(result.usoInterno.segmentoJovenPct[pi]).toBeCloseTo(0.3016, 4);
+  });
+
+  it("RF-99: el % de Uso Interno (Ajuste Hijos) también se ajusta por el recargo geográfico", () => {
+    const input: QuoteInput = {
+      region: "Patagonia",
+      categoria: "Obl",
+      procedencia: "comprobable",
+      filial: "Comahue",
+      miembros: [
+        { tipo: "Titular", rango: "36-40" }, // no elegible para Segmento Joven
+        { tipo: "Hijo/a", rango: "0-1" },
+      ],
+      selectedPolicyIds: [],
+    };
+    const data = baseData(
+      [ajusteHijosInteriorPolicy],
+      [...priceRows("36-40", PLANES.map(() => 100000)), ...priceRows("HIJO-0-1", PLANES.map(() => 100000))]
+    );
+    const result = computeQuote(input, data);
+    const pi = 4; // PLATA
+    // Ajuste Hijos -55% sobre el hijo ($100.000 con recargo) = -$55.000;
+    // el % de Uso Interno se saca contra el subtotal del GRUPO ($200.000)
+    // sin recargo ($200.000/1.16): 55.000/172.413,79 = 55×1.16/200 = 31,9%.
+    expect(result.usoInterno.ajusteHijosPct[pi]).toBeCloseTo(0.319, 4);
+  });
+
   it("RF-91: un Titular sin Esposo/a sigue cotizando a su propio rango", () => {
     const input: QuoteInput = {
       region: "AMBA",

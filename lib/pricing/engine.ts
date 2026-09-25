@@ -318,12 +318,20 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
 
   // Uso interno: % equivalente por plan para Ajuste Hijos / Segmento Joven,
   // para cargar en el sistema de Medife sobre el total del grupo familiar.
+  // RF-99: ese sistema no tiene el recargo geográfico incorporado en su
+  // propia base (acá sí, ya viene sumado dentro de subtotales[] — ver punto
+  // 2) — así que el % hay que sacarlo contra el precio SIN el recargo, para
+  // que al aplicarlo sobre la base de ese otro sistema dé el mismo monto en
+  // pesos que calculamos acá. Confirmado con Diego con un caso real
+  // (Patagonia/Comahue, Segmento Joven -26% sobre precio con recargo ==
+  // -30,16% sobre precio sin recargo).
   const ajusteHijosAplica = PLAN_CODES.map((_, pi) => planFactor(ajusteHijosPolicy, pi) !== 0);
   const segmentoJovenAplica = PLAN_CODES.map(
     (_, pi) => planFactor(segJoven25Policy, pi) !== 0 || (isAMBA && planFactor(segJoven29Policy, pi) !== 0)
   );
+  const subtotalSinRecargo = recargoInfo?.activo ? subtotales.map((s) => s / (1 + recargoInfo.pct)) : subtotales;
   const usoInternoPctByPlan = (amtByPlan: number[], aplica: boolean[]): (number | null)[] =>
-    PLAN_CODES.map((_, pi) => (aplica[pi] && subtotales[pi] ? Math.abs(amtByPlan[pi]) / subtotales[pi] : null));
+    PLAN_CODES.map((_, pi) => (aplica[pi] && subtotalSinRecargo[pi] ? Math.abs(amtByPlan[pi]) / subtotalSinRecargo[pi] : null));
   const usoInterno = {
     ajusteHijosPct: usoInternoPctByPlan(ajusteHijosAmt, ajusteHijosAplica),
     segmentoJovenPct: usoInternoPctByPlan(segmentoJovenAmt, segmentoJovenAplica),
