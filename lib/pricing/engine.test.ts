@@ -191,6 +191,24 @@ describe("computeQuote", () => {
     expect(result.planes[1].total).toBeCloseTo(160476 * 0.87, 2); // MEDIFÉ+ con -13%
   });
 
+  it("RF-100: Segmento Joven h/29 destildado por el vendedor (titular 30-35) no se aplica", () => {
+    const input: QuoteInput = {
+      region: "AMBA",
+      categoria: "Obl",
+      procedencia: "Otros",
+      filial: "CABA",
+      miembros: [{ tipo: "Titular", rango: "26-35" }],
+      selectedPolicyIds: [],
+      sinSegmentoJoven29: true,
+    };
+    const data = baseData([segJoven29Policy], priceRows("26-35", AMBA_OBL_TITULAR_26_35));
+    const result = computeQuote(input, data);
+    expect(result.planes[1].segmentoJoven).toBe(0);
+    expect(result.planes[1].total).toBeCloseTo(160476, 2); // MEDIFÉ+ a precio de lista
+    expect(result.usoInterno.segmentoJovenPct.every((v) => v === null)).toBe(true);
+    expect(result.activePolicies.some((p) => p.id === segJoven29Policy.id)).toBe(false);
+  });
+
   it("En el interior, Ajuste Lista Hijos y Segmento Joven h/25 son aditivos (integrantes distintos)", () => {
     // En AMBA, Segmento Joven exige "sin familia" (ni cónyuge ni hijos) — no coexiste
     // con Ajuste Hijos. En el interior, en cambio, h/25 solo mira al titular/cónyuge,

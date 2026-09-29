@@ -44,6 +44,10 @@ export type QuoteInput = {
   miembros: Miembro[];
   // ids de discount_policies elegidos manualmente por el usuario (estratégicos/tácticos/GAF)
   selectedPolicyIds: string[];
+  // RF-100: Segmento Joven h/29 (AMBA, Titular 26-35) deja de ser obligatorio —
+  // el vendedor lo destilda si el titular tiene 30-35. Ausente (cotizaciones
+  // anteriores) = se aplica, como siempre.
+  sinSegmentoJoven29?: boolean;
 };
 
 export type PriceRow = {

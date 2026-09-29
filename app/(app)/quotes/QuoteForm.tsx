@@ -5,6 +5,7 @@ import { runQuoteAction, type RunQuoteState } from "./actions";
 import { RANGOS_BY_TIPO, RANGOS_HIJO_INTERIOR } from "@/lib/pricing/memberKey";
 import {
   dedupeTacticosByPlan,
+  findSegmentoJovenPolicies,
   isAutoPolicy,
   isCompatible,
   isPolicyMemberEligible,
@@ -46,6 +47,7 @@ export type QuoteFormInitial = {
   vigencia: string;
   miembros: Miembro[];
   selectedPolicyIds: string[];
+  sinSegmentoJoven29?: boolean;
   priceListVersionId?: string;
 };
 
@@ -81,6 +83,9 @@ export default function QuoteForm({
   const [filial, setFilial] = useState(initial?.filial ?? filialesRegion[0]?.code ?? "");
   const [miembros, setMiembros] = useState<Miembro[]>(initial?.miembros ?? [{ tipo: "Titular", rango: "36-40" }]);
   const [selectedPolicyIds, setSelectedPolicyIds] = useState<string[]>(initial?.selectedPolicyIds ?? []);
+  // RF-100: Segmento Joven h/29 viene tildado por default, el vendedor lo
+  // destilda si el titular (rango 26-35) tiene en realidad 30 a 35 años.
+  const [sinSegmentoJoven29, setSinSegmentoJoven29] = useState(initial?.sinSegmentoJoven29 ?? false);
   // RF-65: el label real (Septiembre 2026, etc.) de la lista efectivamente
   // elegida — reemplaza al viejo "Mes actual"/"Mes siguiente" cosmético.
   const vigenciaLabel =
@@ -187,6 +192,11 @@ export default function QuoteForm({
     );
   }, [policies, region, categoria, procedencia, filial, miembros, selectedPolicyIds]);
 
+  const segJoven29 = useMemo(
+    () => findSegmentoJovenPolicies(policies, { region, categoria, procedencia, filial, miembros }).h29,
+    [policies, region, categoria, procedencia, filial, miembros]
+  );
+
   const gaf = selectable.filter((p) => getSection(p) === "gaf");
   const estrategico = selectable.filter((p) => getSection(p) === "estrategico");
   // RF-M10: dos descuentos tácticos no pueden convivir para el mismo plan —
@@ -252,6 +262,7 @@ export default function QuoteForm({
     setFilial(defaultFilial);
     setMiembros([{ tipo: "Titular", rango: "36-40" }]);
     setSelectedPolicyIds([]);
+    setSinSegmentoJoven29(false);
     setState(null);
     window.scrollTo(0, 0);
   }
@@ -269,6 +280,7 @@ export default function QuoteForm({
         vigencia: vigenciaLabel,
         miembros,
         selectedPolicyIds,
+        sinSegmentoJoven29,
         priceListVersionId,
       });
       setState(res);
@@ -453,6 +465,15 @@ export default function QuoteForm({
 
         <div className="card">
           <h2 style={{ fontSize: 18, margin: "0 0 14px" }}>Opciones de descuento</h2>
+          {segJoven29 && (
+            <DiscountSection
+              title="Segmento Joven"
+              hint="Aplica solo hasta 29 años — destildar si el titular tiene entre 30 y 35."
+              items={[segJoven29]}
+              selected={sinSegmentoJoven29 ? [] : [segJoven29.id]}
+              onToggle={(_, checked) => setSinSegmentoJoven29(!checked)}
+            />
+          )}
           <DiscountSection title="GAF" items={gaf} selected={selectedPolicyIds} onToggle={togglePolicy} />
           <DiscountSection
             title="Descuentos estratégicos"
@@ -498,11 +519,13 @@ export default function QuoteForm({
 
 function DiscountSection({
   title,
+  hint,
   items,
   selected,
   onToggle,
 }: {
   title: string;
+  hint?: string;
   items: DiscountPolicy[];
   selected: string[];
   onToggle: (id: string, checked: boolean) => void;
@@ -511,6 +534,7 @@ function DiscountSection({
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{title}</div>
+      {hint && <div style={{ color: "var(--text-neutral)", fontSize: 12, marginBottom: 8 }}>{hint}</div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {items.map((p) => (
           <label

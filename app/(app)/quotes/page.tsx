@@ -46,6 +46,7 @@ export default async function QuotesPage({
         vigencia: quote.vigencia ?? "",
         miembros: input.miembros,
         selectedPolicyIds: input.selectedPolicyIds,
+        sinSegmentoJoven29: input.sinSegmentoJoven29 ?? false,
         priceListVersionId: quote.price_list_version_id,
       };
     }

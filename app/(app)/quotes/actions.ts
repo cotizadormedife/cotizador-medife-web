@@ -26,6 +26,7 @@ const inputSchema = z.object({
   vigencia: z.string(),
   miembros: z.array(miembroSchema).min(1, "Agregá al menos un integrante."),
   selectedPolicyIds: z.array(z.string()),
+  sinSegmentoJoven29: z.boolean().optional(),
   priceListVersionId: z.string().uuid().optional(),
 });
 
@@ -56,6 +57,7 @@ export async function runQuoteAction(raw: unknown): Promise<RunQuoteState> {
     filial: form.filial,
     miembros: form.miembros,
     selectedPolicyIds: form.selectedPolicyIds,
+    sinSegmentoJoven29: form.sinSegmentoJoven29 ?? false,
   };
 
   let data;

@@ -84,7 +84,9 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
 
   // 3. Políticas automáticas
   const ajusteHijosPolicy = findAjusteHijosPolicy(data.policies, ctx);
-  const { h25: segJoven25Policy, h29: segJoven29Policy } = findSegmentoJovenPolicies(data.policies, ctx);
+  const { h25: segJoven25Policy, h29: segJoven29Elegible } = findSegmentoJovenPolicies(data.policies, ctx);
+  // RF-100: h/29 es optativo — el vendedor lo destilda para un titular 30-35.
+  const segJoven29Policy = input.sinSegmentoJoven29 ? null : segJoven29Elegible;
   const descFilialPolicy = findDescuentoFilialPolicy(data.policies, ctx);
 
   const hijoPesosAmt = PLAN_CODES.map((_, pi) => {

@@ -93,7 +93,7 @@ Este es el proceso que se siguió consistentemente durante toda la sesión, no e
 5. Push a los dos remotos, deploy manual al entorno viejo, confirmar que el nuevo se desplegó solo.
 6. **Actualizar documentación** (ver abajo) — esto es una directiva explícita de Diego, no opcional: Documento Funcional y Documento de Versionado en cada cambio funcional; Documento DER en cada cambio de estructura de base de datos, por menor que sea.
 
-El numerado de RF sigue una única secuencia global — el siguiente disponible después de este documento es **RF-100**. Antes de asignar uno nuevo, confirmar el último real con:
+El numerado de RF sigue una única secuencia global — el siguiente disponible después de este documento es **RF-101**. Antes de asignar uno nuevo, confirmar el último real con:
 ```bash
 git log --oneline | grep -oE "RF-[0-9]+" | sort -t- -k2 -n -u | tail -5
 ```
@@ -176,6 +176,7 @@ Desde RF-44 en adelante, un renglón por commit (fecha, qué cambió):
 - 2026-09-25 — **Botón "Eliminar" empresa/broker, bloqueado si tiene vendedores/admin asociados** (RF-97)
 - 2026-09-25 — Botón "Aprobar" en "Todos los usuarios" para revertir un usuario `rejected` (antes quedaba bloqueado sin ninguna acción disponible en la interfaz) (RF-98)
 - 2026-09-25 — **El % de "Uso Interno" (Ajuste Hijos / Segmento Joven) se calcula sobre el precio sin el recargo geográfico**, no sobre el precio de lista — el sistema de Medife donde se carga ese % no tiene el recargo en su propia base (RF-99)
+- 2026-09-29 — **Segmento Joven h/29 (AMBA, Titular 26-35 sin familia) pasa a ser optativo**: se muestra tildado por default en "Opciones de descuento" y el vendedor lo destilda si el titular tiene 30-35 años (pedido de brokers y fuerza de ventas). Se guarda como `sinSegmentoJoven29` en `quotes.input`, sin cambio de estructura en la base (RF-100)
 
 ## Convenciones de esta sesión (para mantener consistencia)
 
