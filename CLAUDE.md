@@ -140,7 +140,9 @@ Reglas de negocio no obvias agregadas después del diseño inicial (ver el chang
 ## Pendientes conocidos (no resueltos al momento de escribir esto)
 
 - SMTP del proyecto Supabase nuevo sigue sin configurar (usa el mailer gratuito de Supabase, rate limit bajo) — el viejo sí tiene SMTP propio (Gmail) configurado.
-- Posible inconsistencia encontrada de paso (no confirmada, no tocada): el importador nunca asigna `tipo: "ucc"` a ninguna política real (`parseDiscountPolicies.ts`), así que la política "UCC" del Excel queda mezclada con el resto de los descuentos GAF en `engine.ts` y quedaría gateada por "sin otro descuento comercial activo" en vez de aplicar siempre como sugiere su nombre. Confirmar con Diego contra un Excel real antes de tocar nada.
+- ~~El importador nunca asignaba `tipo: "ucc"`~~ — resuelto en RF-102 (confirmado por el negocio con la lista de octubre 2026).
+- **El entorno viejo no tiene RF-100 a RF-102**: se pushearon y desplegaron solo en el entorno nuevo (Diego de vacaciones, sin acceso a su cuenta personal de GitHub/Vercel). Pushear a `origin` + `vercel --prod` a su vuelta, o decidir si se da de baja.
+- **El 30/09/2026 el push a `nuevo` no disparó el despliegue automático** (ningún ícono de Vercel en los commits de GitHub; el del 29/09 sí se desplegó solo). Se desplegó a mano con "Create Deployment" desde el panel de Vercel. Causa sin confirmar — revisar la conexión Git del proyecto en Vercel y la GitHub App.
 - Diego mencionó una vez una segunda migración "solo de datos" a futuro — no la volvió a pedir, no es urgente.
 
 ## Changelog de funcionalidades (RF)
@@ -178,7 +180,7 @@ Desde RF-44 en adelante, un renglón por commit (fecha, qué cambió):
 - 2026-09-25 — **El % de "Uso Interno" (Ajuste Hijos / Segmento Joven) se calcula sobre el precio sin el recargo geográfico**, no sobre el precio de lista — el sistema de Medife donde se carga ese % no tiene el recargo en su propia base (RF-99)
 - 2026-09-29 — **Segmento Joven h/29 (AMBA, Titular 26-35 sin familia) pasa a ser optativo**: se muestra tildado por default en "Opciones de descuento" y el vendedor lo destilda si el titular tiene 30-35 años (pedido de brokers y fuerza de ventas). Se guarda como `sinSegmentoJoven29` en `quotes.input`, sin cambio de estructura en la base (RF-100)
 - 2026-09-30 — **Opción 1/2/3 van solo con Opción 5 y Opción 4 solo con Opción 6** (Opción 7 sigue sola): tildar una destilda las incompatibles, y el motor lo valida también (si llegan juntas, gana la elegida más recientemente). Se identifican por slug, el Excel no lo expresa en Comentarios. No afecta tácticos ni GAF (RF-101)
-- 2026-09-30 — **UCC se importa con `tipo: "ucc"`** (antes quedaba como un GAF más y solo aplicaba sin descuento comercial activo) y se acumula con estratégicos/tácticos; el importador entiende "No es acumulable a otro GAF" (lista de octubre 2026) como exclusión del grupo GAF. Las listas ya cargadas necesitan volver a subirse para tomarlo (RF-102). Esto resuelve el pendiente de UCC de más abajo.
+- 2026-09-30 — **UCC se importa con `tipo: "ucc"`** (antes quedaba como un GAF más y solo aplicaba sin descuento comercial activo) y se acumula con estratégicos/tácticos; el importador entiende "No es acumulable a otro GAF" (lista de octubre 2026) como exclusión del grupo GAF. Las listas ya cargadas necesitan volver a subirse para tomarlo (RF-102). Esto resuelve el pendiente de UCC de la sección "Pendientes conocidos".
 
 ## Convenciones de esta sesión (para mantener consistencia)
 
