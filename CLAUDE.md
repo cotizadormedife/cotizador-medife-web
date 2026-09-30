@@ -142,7 +142,7 @@ Reglas de negocio no obvias agregadas después del diseño inicial (ver el chang
 - SMTP del proyecto Supabase nuevo sigue sin configurar (usa el mailer gratuito de Supabase, rate limit bajo) — el viejo sí tiene SMTP propio (Gmail) configurado.
 - ~~El importador nunca asignaba `tipo: "ucc"`~~ — resuelto en RF-102 (confirmado por el negocio con la lista de octubre 2026).
 - **El entorno viejo no tiene RF-100 a RF-102**: se pushearon y desplegaron solo en el entorno nuevo (Diego de vacaciones, sin acceso a su cuenta personal de GitHub/Vercel). Pushear a `origin` + `vercel --prod` a su vuelta, o decidir si se da de baja.
-- **El 30/09/2026 el push a `nuevo` no disparó el despliegue automático** (ningún ícono de Vercel en los commits de GitHub; el del 29/09 sí se desplegó solo). Se desplegó a mano con "Create Deployment" desde el panel de Vercel. Causa sin confirmar — revisar la conexión Git del proyecto en Vercel y la GitHub App.
+- **El 30/09/2026 el push a `nuevo` no disparó el despliegue automático** (ningún ícono de Vercel en los commits de GitHub; el del 29/09 sí se desplegó solo). Se desplegó a mano con "Create Deployment" desde el panel de Vercel. El push siguiente (`8a6b49e`, mismo día) sí se desplegó solo, así que parece una falla puntual de la integración GitHub↔Vercel. Si vuelve a pasar: revisar la conexión Git del proyecto en Vercel y la GitHub App, y desplegar a mano mientras tanto.
 - Diego mencionó una vez una segunda migración "solo de datos" a futuro — no la volvió a pedir, no es urgente.
 
 ## Changelog de funcionalidades (RF)
