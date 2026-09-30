@@ -11,6 +11,7 @@ import {
   isPolicyMemberEligible,
   isPolicyRelevant,
   isRequisitoCumplido,
+  resolverOpcionesCompatibles,
 } from "@/lib/pricing/policyEligibility";
 import type { DiscountPolicy, Miembro, TipoMiembro } from "@/lib/pricing/types";
 import OptionGroup from "./OptionGroup";
@@ -82,7 +83,14 @@ export default function QuoteForm({
   const filialesRegion = useMemo(() => filiales.filter((f) => f.region_code === region), [filiales, region]);
   const [filial, setFilial] = useState(initial?.filial ?? filialesRegion[0]?.code ?? "");
   const [miembros, setMiembros] = useState<Miembro[]>(initial?.miembros ?? [{ tipo: "Titular", rango: "36-40" }]);
-  const [selectedPolicyIds, setSelectedPolicyIds] = useState<string[]>(initial?.selectedPolicyIds ?? []);
+  const [selectedPolicyIds, setSelectedPolicyIds] = useState<string[]>(() => {
+    // RF-101: una cotización anterior a la regla puede traer Opciones que hoy
+    // no conviven (ej. 3 + 4 + 6) — al re-cotizar quedan solo las que ganan.
+    const ids = initial?.selectedPolicyIds ?? [];
+    const elegidas = policies.filter((p) => ids.includes(p.id));
+    const ganan = new Set(resolverOpcionesCompatibles(elegidas, ids).map((p) => p.id));
+    return ids.filter((id) => ganan.has(id) || !elegidas.some((p) => p.id === id));
+  });
   // RF-100: Segmento Joven h/29 viene tildado por default, el vendedor lo
   // destilda si el titular (rango 26-35) tiene en realidad 30 a 35 años.
   const [sinSegmentoJoven29, setSinSegmentoJoven29] = useState(initial?.sinSegmentoJoven29 ?? false);

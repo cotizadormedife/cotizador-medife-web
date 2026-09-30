@@ -107,6 +107,41 @@ export function isRequisitoCumplido(policy: DiscountPolicy, selectedSlugs: strin
   return selectedSlugs.some((slug) => slug.startsWith(policy.requiereSlugPrefix!));
 }
 
+// RF-101: familias de Opciones estratégicas que no conviven entre sí — el
+// Excel no lo expresa en "Comentarios", se identifican por slug (igual que
+// RF-60). Opción 1/2/3 van solo con Opción 5; Opción 4 va solo con Opción 6;
+// Opción 7 va sola (esa ya la cubre excluyeOtros).
+const FAMILIA_OPCION: Record<string, "123-5" | "4-6"> = { "1": "123-5", "2": "123-5", "3": "123-5", "5": "123-5", "4": "4-6", "6": "4-6" };
+const OPCIONES_PRINCIPALES_123 = ["1", "2", "3"];
+
+function opcionNum(policy: DiscountPolicy): string | null {
+  if (policy.grupo !== "estrategico") return null;
+  return policy.slug.match(/^opcion-(\d+)-/)?.[1] ?? null;
+}
+
+export function sonOpcionesCompatibles(a: DiscountPolicy, b: DiscountPolicy): boolean {
+  const na = opcionNum(a);
+  const nb = opcionNum(b);
+  if (!na || !nb || na === nb) return true;
+  const fa = FAMILIA_OPCION[na];
+  const fb = FAMILIA_OPCION[nb];
+  if (fa && fb && fa !== fb) return false;
+  // RF-60: Opción 1, 2 y 3 son mutuamente excluyentes entre sí.
+  if (OPCIONES_PRINCIPALES_123.includes(na) && OPCIONES_PRINCIPALES_123.includes(nb)) return false;
+  return true;
+}
+
+// RF-101: si llegan Opciones incompatibles juntas (ej. al re-cotizar una
+// cotización anterior a esta regla), gana la elegida más recientemente —
+// igual que en el formulario, donde tildar una destilda las incompatibles.
+// `orden` son los ids en el orden en que se eligieron (selectedPolicyIds).
+export function resolverOpcionesCompatibles(policies: DiscountPolicy[], orden: string[]): DiscountPolicy[] {
+  const porRecencia = [...policies].sort((a, b) => orden.indexOf(b.id) - orden.indexOf(a.id));
+  const kept: DiscountPolicy[] = [];
+  for (const p of porRecencia) if (kept.every((k) => sonOpcionesCompatibles(p, k))) kept.push(p);
+  return policies.filter((p) => kept.includes(p));
+}
+
 // RF-M8: reglas de exclusión leídas de "Comentarios" del Excel —
 // excluyeOtros (ej. Opción 7: "No acumulable con otros descuentos") y
 // excluyeGrupo (ej. Dto Indie: "No Acumulable con Descuento Estratégico").
@@ -129,6 +164,7 @@ export function isCompatible(a: DiscountPolicy, b: DiscountPolicy): boolean {
   if (a.excluyeOtros || b.excluyeOtros) return false;
   if (a.excluyeGrupo.includes(b.grupo)) return false;
   if (b.excluyeGrupo.includes(a.grupo)) return false;
+  if (!sonOpcionesCompatibles(a, b)) return false;
   return true;
 }
 

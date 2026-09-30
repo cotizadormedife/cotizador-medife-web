@@ -393,6 +393,37 @@ describe("computeQuote", () => {
     expect(porMes(25)).toBeCloseTo(sinDescuento, 0);
   });
 
+  it("RF-101: Opción 3 no convive con Opción 4/6 — si llegan juntas, gana la elegida más recientemente", () => {
+    const opcion3 = policy({ id: "opcion-3-nac-Vol", nombre: "Opción 3", valorPct: -0.2, plazoMeses: 11 });
+    const opcion4 = policy({ id: "opcion-4-nac-Vol", nombre: "Opción 4", valorPct: -0.15, plazoMeses: 12 });
+    const opcion6 = policy({
+      id: "opcion-6-nac-Vol",
+      nombre: "Opción 6",
+      valorPct: -0.2,
+      plazoMeses: 12,
+      concatenable: true,
+      requiereSlugPrefix: "opcion-4",
+    });
+    const base = {
+      region: "AMBA",
+      categoria: "Vol" as const,
+      procedencia: "comprobable" as const,
+      filial: "CABA",
+      miembros: [{ tipo: "Titular" as const, rango: "36-40" }],
+    };
+    const data = baseData([opcion3, opcion4, opcion6], priceRows("36-40", [237746, 178824, 210381, 247525, 306521, 430356, 559463]));
+
+    // Caso del reclamo: 3, después 4 y 6 → quedan 4 + 6, la 3 no suma.
+    const r1 = computeQuote({ ...base, selectedPolicyIds: ["opcion-3-nac-Vol", "opcion-4-nac-Vol", "opcion-6-nac-Vol"] }, data);
+    expect(r1.planes[4].descuentoComercialPct).toBeCloseTo(-0.15, 5);
+    expect(r1.activePolicies.map((p) => p.id)).not.toContain("opcion-3-nac-Vol");
+
+    // Al revés: 4 y 6, después 3 → queda solo la 3.
+    const r2 = computeQuote({ ...base, selectedPolicyIds: ["opcion-4-nac-Vol", "opcion-6-nac-Vol", "opcion-3-nac-Vol"] }, data);
+    expect(r2.planes[4].descuentoComercialPct).toBeCloseTo(-0.2, 5);
+    expect(r2.activePolicies.map((p) => p.id)).toEqual(["opcion-3-nac-Vol"]);
+  });
+
   it("un descuento escalonado (schedule) aplica el tramo correcto en cada mes de la proyección", () => {
     const opcion1Like = policy({
       id: "opcion-1-nac-Vol",

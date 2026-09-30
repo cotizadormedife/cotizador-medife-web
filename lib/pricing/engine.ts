@@ -11,6 +11,7 @@ import {
   isPolicyRelevant,
   isRequisitoCumplido,
   magnitudPlan,
+  resolverOpcionesCompatibles,
 } from "./policyEligibility";
 
 const CUOTAS_PROYECCION = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 24, 25];
@@ -147,7 +148,10 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
       isPolicyRelevant(p, ctx) &&
       isRequisitoCumplido(p, selectedSlugs)
   );
-  const exclusionOk = requisitoOk.filter((p) => isExclusionOk(p, requisitoOk));
+  const exclusionOk = resolverOpcionesCompatibles(
+    requisitoOk.filter((p) => isExclusionOk(p, requisitoOk)),
+    input.selectedPolicyIds
+  );
   // RF-M10: dos descuentos tácticos no pueden convivir para el mismo plan —
   // se valida también acá (no solo en el formulario) para que no dependa
   // solo del cliente.

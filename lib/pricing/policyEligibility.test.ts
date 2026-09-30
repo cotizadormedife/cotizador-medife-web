@@ -62,6 +62,23 @@ describe("isCompatible", () => {
     const b = policy({ id: "b" });
     expect(isCompatible(a, b)).toBe(true);
   });
+
+  it("RF-101: Opción 1/2/3 van solo con Opción 5, Opción 4 solo con Opción 6", () => {
+    const op = (n: number) => policy({ id: `opcion-${n}-Obl` });
+    expect(isCompatible(op(4), op(6))).toBe(true);
+    expect(isCompatible(op(3), op(5))).toBe(true);
+    for (const n of [1, 2, 3, 5]) {
+      expect(isCompatible(op(n), op(4))).toBe(false);
+      expect(isCompatible(op(6), op(n))).toBe(false);
+    }
+    expect(isCompatible(op(1), op(3))).toBe(false); // RF-60
+  });
+
+  it("RF-101: las Opciones siguen siendo compatibles con descuentos tácticos y GAF", () => {
+    const opcion4 = policy({ id: "opcion-4-Obl" });
+    expect(isCompatible(opcion4, policy({ id: "dto-mes-plata", grupo: "tactico" }))).toBe(true);
+    expect(isCompatible(opcion4, policy({ id: "ucc-norte", grupo: "gaf", tipo: "ucc" }))).toBe(true);
+  });
 });
 
 describe("isPolicyMemberEligible", () => {
