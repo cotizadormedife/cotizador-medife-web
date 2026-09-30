@@ -255,6 +255,24 @@ describe("computeQuote", () => {
     expect(result.planes[pi].total).toBeCloseTo(AMBA_OBL_TITULAR_36_40[pi] * 0.85, 2);
   });
 
+  it("RF-102: UCC se acumula con un descuento estratégico activo (no queda gateado como el GAF interés general)", () => {
+    const opcion4 = policy({ id: "opcion-4-nac-Obl", nombre: "Opción 4", valorPct: -0.2, plazoMeses: 12 });
+    const input: QuoteInput = {
+      region: "AMBA",
+      categoria: "Obl",
+      procedencia: "comprobable",
+      filial: "CABA",
+      miembros: [{ tipo: "Titular", rango: "36-40" }],
+      selectedPolicyIds: ["opcion-4-nac-Obl", "ucc"],
+    };
+    const data = baseData([opcion4, { ...uccPolicy, region: "AMBA", excluyeGrupo: ["gaf"] }], priceRows("36-40", AMBA_OBL_TITULAR_36_40));
+    const result = computeQuote(input, data);
+    const pi = 4;
+    expect(result.planes[pi].descuentoComercialPct).toBeCloseTo(-0.2, 5);
+    expect(result.planes[pi].ucc).toBeCloseTo(AMBA_OBL_TITULAR_36_40[pi] * -0.15, 2);
+    expect(result.planes[pi].total).toBeCloseTo(AMBA_OBL_TITULAR_36_40[pi] * (1 - 0.2 - 0.15), 2);
+  });
+
   it("GAF interés general solo se activa si NO hay descuento comercial activo en ningún plan", () => {
     const input: QuoteInput = {
       region: "AMBA",

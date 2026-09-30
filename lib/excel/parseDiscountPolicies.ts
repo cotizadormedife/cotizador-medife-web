@@ -248,11 +248,19 @@ function parseComentarios(
     result.excluyeOtros = true;
     matchedAlgo = true;
   }
-  if (/no acumulable con descuento estrat[eé]gico/i.test(text)) {
+  if (/no acumulable con descuentos? estrat[eé]gicos?/i.test(text)) {
     result.excluyeGrupo.push("estrategico");
     matchedAlgo = true;
-  } else if (/acumulable con descuento estrat[eé]gico/i.test(text)) {
+  } else if (/acumulable con descuentos? estrat[eé]gicos?/i.test(text)) {
     // Confirma el comportamiento por default (se suma con lo Estratégico elegido) — sin flag adicional.
+    // RF-102: acepta también el plural ("descuentos estrategicos y tacticos", caso UCC).
+    matchedAlgo = true;
+  }
+  // RF-102: "No es acumulable a otro GAF" (todas las filas GAF desde la lista
+  // de octubre 2026) — un solo GAF a la vez, igual que RF-94 en el formulario,
+  // ahora validado también en el motor de cálculo.
+  if (/no (?:es )?acumulable (?:a|con) (?:otros?|ning[uú]n) gaf/i.test(text)) {
+    result.excluyeGrupo.push("gaf");
     matchedAlgo = true;
   }
   const requiereMatch = text.match(/concatenable con la opci[oó]n\s*(\d+)|combinable con la opci[oó]n\s*(\d+)/i);
@@ -494,7 +502,10 @@ export async function parseDiscountPolicies(
     const newPolicy: ParsedPolicy = {
       slug,
       nombre: descripcion || tipoRaw,
-      tipo: mapTipo(grupo),
+      // RF-102: la fila GAF "UCC" es el descuento de empleador, que se suma
+      // aparte (engine.ts, paso 7) — antes quedaba como un GAF más y solo
+      // aplicaba sin ningún descuento comercial activo.
+      tipo: grupo === "gaf" && descripcionKey === "UCC" ? "ucc" : mapTipo(grupo),
       grupo,
       categoriaEspecial,
       region,

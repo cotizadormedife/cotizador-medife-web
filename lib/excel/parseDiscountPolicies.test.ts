@@ -274,6 +274,29 @@ describe("parseDiscountPolicies", () => {
     expect(p2.concatenable).toBe(true);
   });
 
+  it("RF-102: UCC se importa como tipo 'ucc' y los comentarios de GAF de la lista de octubre se interpretan sin warnings", async () => {
+    const ucc: Row = {
+      ...gaf,
+      descripcion: "UCC",
+      zonas: "NORTE",
+      comentarios: "No es acumulable a otro GAF. Acumulable con descuentos estrategicos y tacticos.",
+    };
+    const otroGaf: Row = { ...gafSur, comentarios: "No es acumulable a otro GAF" };
+    const buf = await buildWorkbook([ucc, otroGaf]);
+    const { policies, report } = await parseDiscountPolicies(buf, [], TEST_PLANES);
+
+    const pUcc = policies.find((p) => p.nombre === "UCC")!;
+    expect(pUcc.tipo).toBe("ucc");
+    expect(pUcc.grupo).toBe("gaf");
+    expect(pUcc.excluyeGrupo).toEqual(["gaf"]);
+
+    const pOtro = policies.find((p) => p.nombre === "ACIPAN")!;
+    expect(pOtro.tipo).toBe("gaf");
+    expect(pOtro.excluyeGrupo).toEqual(["gaf"]);
+
+    expect(report.warnings).toEqual([]);
+  });
+
   it("un GAF puede volverse concatenable con otro GAF por nombre (no solo con una opción numerada)", async () => {
     // "PRESTADORES MEDIFE AMBA" es la fila `gaf`; un GAF nuevo referencia su
     // nombre tal cual en Comentarios, en vez de "la opción N".
