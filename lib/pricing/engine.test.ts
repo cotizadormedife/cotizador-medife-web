@@ -837,6 +837,24 @@ describe("computeQuote", () => {
     expect(result.usoInterno.ajusteHijosPct[pi]).toBeCloseTo(0.319, 4);
   });
 
+  it("RF-103: aporte con el tope vigente — caso real de Diego (sueldo 4.771.508, Medifé): $354.069,75, igual que el Excel", () => {
+    const input: QuoteInput = {
+      region: "AMBA",
+      categoria: "Obl",
+      procedencia: "Otros",
+      filial: "CABA",
+      miembros: [{ tipo: "Titular", rango: "26-35", sueldo: 4771508, obraSocial: "Medife" }],
+      selectedPolicyIds: [],
+    };
+    const base = baseData([], priceRows("26-35", AMBA_OBL_TITULAR_26_35));
+    // Con el tope vigente (el de la lista), el sueldo no lo supera: aporte = sueldo × (2,55% + 5,1%) × 0,97.
+    const vigente = computeQuote(input, { ...base, config: { ...base.config, aporte_tope: 4771508 } });
+    expect(vigente.planes[0].aportes).toBeCloseTo(-354069.75, 1);
+    // Con el tope viejo de agosto (el que quedó fijo en el sistema) daba $347.590,65: el error reportado.
+    const viejo = computeQuote(input, { ...base, config: { ...base.config, aporte_tope: 4509567.41 } });
+    expect(viejo.planes[0].aportes).toBeCloseTo(-347590.65, 1);
+  });
+
   it("RF-91: un Titular sin Esposo/a sigue cotizando a su propio rango", () => {
     const input: QuoteInput = {
       region: "AMBA",

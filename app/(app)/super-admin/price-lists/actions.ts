@@ -6,6 +6,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { parsePriceList } from "@/lib/excel/parsePriceList";
 import { parseDiscountPolicies } from "@/lib/excel/parseDiscountPolicies";
 import { parseRegionesFiliales, parsePlanesFromInfo } from "@/lib/excel/parseRegionesFiliales";
+import { parseTopeAportes } from "@/lib/excel/parseTopeAportes";
+import { claveTopePorLista } from "@/lib/pricing/configPorLista";
 import { resolveUploadTarget } from "@/lib/pricing/repository";
 import { formatVigencia } from "@/lib/pricing/vigencia";
 import { logAction } from "@/lib/auditLog";
@@ -29,6 +31,8 @@ export type UploadState =
         geoWarnings: string[];
         totalPlanes: number;
         planWarnings: string[];
+        topeAportes: number | null;
+        topeWarnings: string[];
       };
     }
   | { ok: false; error: string };
@@ -104,6 +108,18 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     return { ok: false, error: parsedGeo.report.errors.join(" ") };
   }
 
+  // RF-103: el tope de remuneración para aportes cambia todos los meses y
+  // viene en el Excel ("C aux") — se lee acá y se guarda para esta lista.
+  let topeAportes: number | null = null;
+  let topeWarnings: string[] = [];
+  try {
+    const t = await parseTopeAportes(buffer);
+    topeAportes = t.tope;
+    topeWarnings = t.warnings;
+  } catch (e: any) {
+    topeWarnings = ["No se pudo leer el tope de aportes del archivo: " + (e.message ?? String(e)) + " — se usa el tope general del sistema."];
+  }
+
   // RF-66/RF-67: "pisar" siempre apunta a la vigencia de la activa actual (y
   // por lo tanto la sobrescribe); "próximo mes" apunta al mes siguiente al de
   // la activa y, si ya existe una versión con esa vigencia, también la
@@ -142,7 +158,24 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     geoWarnings: parsedGeo.report.warnings,
     totalPlanes: planRows.length,
     planWarnings: parsedPlanes.report.warnings,
+    topeAportes,
+    topeWarnings,
   };
+
+  // Guarda el tope de esta lista (pricing_config, clave "aporte_tope@<id>").
+  // Si falla, la carga igual queda hecha — se avisa en el reporte.
+  async function guardarTope(versionId: string): Promise<string[]> {
+    if (topeAportes == null) return [];
+    const { error } = await supabase.from("pricing_config").upsert(
+      {
+        key: claveTopePorLista(versionId),
+        value: topeAportes,
+        description: "Tope de remuneración para aportes de esta lista de precios (leído del Excel, hoja C aux)",
+      },
+      { onConflict: "key" }
+    );
+    return error ? ["No se pudo guardar el tope de aportes de esta lista: " + error.message + " — se usa el tope general del sistema."] : [];
+  }
 
   if (target.existingId) {
     const { error: rpcErr } = await supabase.rpc("overwrite_price_list_version", {
@@ -160,6 +193,7 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
       return { ok: false, error: "No se pudieron reemplazar los precios y descuentos: " + rpcErr.message };
     }
 
+    const topeErrOverwrite = await guardarTope(target.existingId);
     await logAction({
       actorId: actor.id,
       action: modo === "pisar" ? "price_list.overwrite_active" : "price_list.overwrite_proximo",
@@ -175,7 +209,7 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
       versionId: target.existingId,
       vigenciaLabel: formatVigencia(target.vigencia, (target.existingVersionNum ?? 1) + 1),
       vigenteDeInmediato: modo === "pisar",
-      report: combinedReport,
+      report: { ...combinedReport, topeWarnings: [...combinedReport.topeWarnings, ...topeErrOverwrite] },
     };
   }
 
@@ -197,6 +231,7 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     return { ok: false, error: "No se pudo crear la versión: " + (rpcErr?.message ?? "") };
   }
 
+  const topeErrInsert = await guardarTope(newVersionId);
   await logAction({ actorId: actor.id, action: "price_list.upload", targetType: "price_list_version", targetId: newVersionId, meta: combinedReport });
 
   revalidatePath("/super-admin/price-lists");
@@ -206,6 +241,6 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     versionId: newVersionId,
     vigenciaLabel: formatVigencia(target.vigencia, 1),
     vigenteDeInmediato: false,
-    report: combinedReport,
+    report: { ...combinedReport, topeWarnings: [...combinedReport.topeWarnings, ...topeErrInsert] },
   };
 }

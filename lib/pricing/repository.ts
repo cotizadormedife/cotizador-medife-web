@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import type { Categoria, DiscountPolicy, PricingData } from "./types";
+import { armarConfig } from "./configPorLista";
 import { compareVigencia, formatVigencia, nextVigencia, vigenciaDeHoy } from "./vigencia";
 
 // RF-68: por default se usa la lista de la vigencia de hoy (o, si todavía no
@@ -116,7 +117,8 @@ export async function loadPricingData(region: string, categoria: Categoria, pric
     })),
     policies,
     monotributoBrackets: Object.fromEntries((monotributoRows ?? []).map((r: any) => [r.letra, Number(r.monto)])),
-    config: Object.fromEntries((configRows ?? []).map((r: any) => [r.key, Number(r.value)])),
+    // RF-103: el tope de aportes sale de la lista con la que se cotiza.
+    config: armarConfig(configRows ?? [], versionId),
     priceListVersionId: versionId,
     planes: (planRows ?? []).map((p: any) => ({ code: p.code, nombre: p.nombre, sortOrder: p.sort_order })),
   };

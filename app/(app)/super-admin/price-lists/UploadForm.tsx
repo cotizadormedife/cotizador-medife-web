@@ -129,6 +129,29 @@ export default function UploadForm({ existingProximoLabel }: { existingProximoLa
             <strong>{state.report.totalPlanes}</strong> planes.
             Lista de precios: <strong>{state.vigenciaLabel}</strong>.
           </p>
+          <p style={{ margin: "0 0 8px", fontSize: 14 }}>
+            {state.report.topeAportes != null ? (
+              <>
+                ✅ Tope de remuneración para aportes de esta lista:{" "}
+                <strong>
+                  {state.report.topeAportes.toLocaleString("es-AR", { style: "currency", currency: "ARS", minimumFractionDigits: 2 })}
+                </strong>
+                .
+              </>
+            ) : (
+              <>⚠️ No se pudo leer el tope de aportes de este archivo — se usa el tope general del sistema.</>
+            )}
+          </p>
+          {state.report.topeWarnings.length > 0 && (
+            <div style={{ fontSize: 13, marginBottom: 8 }}>
+              <strong>Avisos del tope de aportes ({state.report.topeWarnings.length}):</strong>
+              <ul>
+                {state.report.topeWarnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {state.report.warnings.length > 0 && (
             <div style={{ fontSize: 13 }}>
               <strong>Avisos de precios ({state.report.warnings.length}):</strong>
