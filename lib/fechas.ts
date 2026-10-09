@@ -44,3 +44,48 @@ export function inicioDiaSiguienteAR(dia: string | undefined): string | null {
   const siguiente = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + 1));
   return `${siguiente.toISOString().slice(0, 10)}T00:00:00-03:00`;
 }
+
+// ── Meses completos en hora de Argentina (RF-106, Dashboard) ──────────────
+// Los períodos del Dashboard siempre son meses calendario completos, medidos
+// en hora de Argentina (UTC-3 fijo, sin horario de verano).
+
+export type ClaveMes = string; // "AAAA-MM"
+
+const NOMBRES_MES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+export function claveMes(anio: number, mes: number): ClaveMes {
+  return `${anio}-${pad2(mes)}`;
+}
+
+// Mes (en hora de Argentina) al que pertenece un instante guardado en UTC.
+export function mesAR(valor: string | Date): ClaveMes {
+  const t = new Date(valor).getTime() - 3 * 60 * 60 * 1000;
+  return new Date(t).toISOString().slice(0, 7);
+}
+
+// Año y mes de hoy en Argentina.
+export function hoyAR(ahora: Date = new Date()): { anio: number; mes: number } {
+  const [a, m] = mesAR(ahora).split("-").map(Number);
+  return { anio: a, mes: m };
+}
+
+// Primer instante del mes y primer instante del mes siguiente (exclusivo).
+export function limitesMesAR(clave: ClaveMes): { desde: string; hasta: string } {
+  const [a, m] = clave.split("-").map(Number);
+  const sig = m === 12 ? claveMes(a + 1, 1) : claveMes(a, m + 1);
+  return { desde: `${clave}-01T00:00:00-03:00`, hasta: `${sig}-01T00:00:00-03:00` };
+}
+
+// "Todo el año": los meses que corresponden — los 12 de un año ya terminado,
+// hasta el mes actual en el año en curso, ninguno en un año futuro.
+export function mesesQueCorresponden(anio: number, hoy: { anio: number; mes: number }): number[] {
+  const hasta = anio < hoy.anio ? 12 : anio === hoy.anio ? hoy.mes : 0;
+  return Array.from({ length: hasta }, (_, i) => i + 1);
+}
+
+export function etiquetaMes(clave: ClaveMes): string {
+  const [a, m] = clave.split("-").map(Number);
+  return `${NOMBRES_MES[m - 1]} ${a}`;
+}

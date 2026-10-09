@@ -3,6 +3,7 @@ import { requireApprovedUser } from "@/lib/auth/session";
 import { signOutAction } from "@/lib/auth/actions";
 import { listEmpresas } from "@/lib/empresas";
 import EditProfileModal from "./EditProfileModal";
+import { puedeVerDashboard } from "@/lib/dashboard/acceso";
 
 const LOGO_ORANGE = (
   <svg width="66" height="15" viewBox="0 0 82 19" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -55,6 +56,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <>
                 <NavLink href="/admin/users">Usuarios</NavLink>
                 <NavLink href="/admin/quotes">Todas las cotizaciones</NavLink>
+                {puedeVerDashboard(profile) && <NavLink href="/admin/dashboard">Dashboard</NavLink>}
               </>
             )}
             {profile.role === "super_admin" && (
