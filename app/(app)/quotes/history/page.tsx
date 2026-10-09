@@ -1,4 +1,5 @@
 import { requireApprovedUser } from "@/lib/auth/session";
+import { fmtFechaHoraAR } from "@/lib/fechas";
 import { createServiceClient } from "@/lib/supabase/service";
 import { summarizeMiembros } from "@/lib/pricing/summary";
 import { formatVigencia } from "@/lib/pricing/vigencia";
@@ -75,7 +76,7 @@ export default async function HistoryPage({
                   return (
                     <tr key={q.id}>
                       <td style={td}>{q.quote_number}</td>
-                      <td style={td}>{new Date(q.created_at).toLocaleString("es-AR")}</td>
+                      <td style={td}>{fmtFechaHoraAR(q.created_at)}</td>
                       <td style={td}>{q.asociado_nombre}</td>
                       <td style={td}>{q.region_code}</td>
                       <td style={td}>{q.categoria === "Vol" ? "Voluntario" : "Obligatorio"}</td>
@@ -91,7 +92,7 @@ export default async function HistoryPage({
                           input={q.input}
                           meta={{
                             numero: q.quote_number,
-                            fecha: new Date(q.created_at).toLocaleString("es-AR"),
+                            fecha: fmtFechaHoraAR(q.created_at),
                             vendedor: q.vendedor_nombre,
                             asociado: q.asociado_nombre,
                             region: q.region_code,

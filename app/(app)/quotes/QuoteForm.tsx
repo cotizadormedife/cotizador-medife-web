@@ -14,6 +14,7 @@ import {
   resolverOpcionesCompatibles,
 } from "@/lib/pricing/policyEligibility";
 import type { DiscountPolicy, Miembro, TipoMiembro } from "@/lib/pricing/types";
+import { fmtFechaAR } from "@/lib/fechas";
 import OptionGroup from "./OptionGroup";
 import QuoteResults, { fmtPct } from "./QuoteResults";
 
@@ -510,7 +511,7 @@ export default function QuoteForm({
               numero: state.quoteNumber,
               asociado,
               vendedor,
-              fecha: new Date().toLocaleDateString("es-AR"),
+              fecha: fmtFechaAR(),
               region: regions.find((r) => r.code === region)?.nombre ?? region,
               filial: filialesRegion.find((f) => f.code === filial)?.nombre ?? filial,
               categoria,

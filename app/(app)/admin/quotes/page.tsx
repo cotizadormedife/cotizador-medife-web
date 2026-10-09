@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireRole } from "@/lib/auth/session";
 import { listEmpresas, isMedife } from "@/lib/empresas";
+import { fmtFechaHoraAR, inicioDiaAR, inicioDiaSiguienteAR } from "@/lib/fechas";
 import { summarizeMiembros } from "@/lib/pricing/summary";
 import { formatVigencia } from "@/lib/pricing/vigencia";
 import QuoteDetailActions from "../../quotes/QuoteDetailModal";
@@ -39,8 +40,11 @@ export default async function AdminQuotesPage({
       "id, quote_number, created_at, asociado_nombre, vendedor_nombre, region_code, filial_code, categoria, vigencia, created_by, input, output, profiles!quotes_created_by_fkey(nombre, apellido, email, empresa_id, empresas(nombre)), price_list_versions(vigencia_anio, vigencia_mes, version_num)"
     );
 
-  if (desde) query = query.gte("created_at", desde);
-  if (hasta) query = query.lte("created_at", hasta);
+  // RF-104: los filtros son días de Argentina — "hasta" incluye el día completo.
+  const desdeAR = inicioDiaAR(desde);
+  const hastaAR = inicioDiaSiguienteAR(hasta);
+  if (desdeAR) query = query.gte("created_at", desdeAR);
+  if (hastaAR) query = query.lt("created_at", hastaAR);
   if (usuario) query = query.eq("created_by", usuario);
   if (numero) query = query.eq("quote_number", Number(numero));
 
@@ -127,7 +131,7 @@ export default async function AdminQuotesPage({
                 return (
                   <tr key={q.id}>
                     <td style={td}>{q.quote_number}</td>
-                    <td style={td}>{new Date(q.created_at).toLocaleString("es-AR")}</td>
+                    <td style={td}>{fmtFechaHoraAR(q.created_at)}</td>
                     <td style={td}>
                       {q.profiles?.nombre} {q.profiles?.apellido} ({q.profiles?.empresas?.nombre ?? "—"}) ({q.profiles?.email})
                     </td>
@@ -146,7 +150,7 @@ export default async function AdminQuotesPage({
                         input={q.input}
                         meta={{
                           numero: q.quote_number,
-                          fecha: new Date(q.created_at).toLocaleString("es-AR"),
+                          fecha: fmtFechaHoraAR(q.created_at),
                           vendedor: q.vendedor_nombre,
                           asociado: q.asociado_nombre,
                           region: q.region_code,

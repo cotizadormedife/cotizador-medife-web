@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { fmtFechaHoraAR } from "@/lib/fechas";
 import { resolveUploadTarget } from "@/lib/pricing/repository";
 import { formatVigencia, vigenciaDeHoy, nextVigencia } from "@/lib/pricing/vigencia";
 import UploadForm from "./UploadForm";
@@ -48,7 +49,7 @@ export default async function PriceListsPage() {
           <p style={{ fontSize: 14, color: "var(--text-neutral)", margin: 0 }}>
             <strong>{formatVigencia({ anio: actual.vigencia_anio, mes: actual.vigencia_mes }, actual.version_num)}</strong> (
             {actual.source_filename}) — última carga el{" "}
-            {new Date(actual.uploaded_at).toLocaleString("es-AR")}
+            {fmtFechaHoraAR(actual.uploaded_at)}
             {actual.uploader ? ` por ${actual.uploader.nombre} ${actual.uploader.apellido}` : ""}
           </p>
         ) : (
@@ -106,10 +107,10 @@ export default async function PriceListsPage() {
                   <td style={td}>{v.source_filename}</td>
                   <td style={td}>{esActiva(v) ? "Activa" : "Inactiva"}</td>
                   <td style={td}>
-                    {new Date(v.uploaded_at).toLocaleString("es-AR")}
+                    {fmtFechaHoraAR(v.uploaded_at)}
                     {v.uploader ? ` · ${v.uploader.nombre} ${v.uploader.apellido}` : ""}
                   </td>
-                  <td style={td}>{v.activated_at ? new Date(v.activated_at).toLocaleString("es-AR") : "—"}</td>
+                  <td style={td}>{v.activated_at ? fmtFechaHoraAR(v.activated_at) : "—"}</td>
                   <td style={td}>{v.parse_report?.totalCells ?? "—"}</td>
                   <td style={td}>{v.parse_report?.warnings?.length ?? 0}</td>
                 </tr>
