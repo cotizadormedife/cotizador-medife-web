@@ -57,8 +57,16 @@ export default function QuoteResults({ result, meta }: { result: QuoteResult; me
     setHiddenPlans(new Set(result.planes.map((_, i) => i).filter((i) => !selection.has(i))));
     setSelectorOpen(false);
     setTimeout(() => {
+      // RF-105: en el celular window.print() NO espera a que termine la
+      // impresión (en la PC sí): volver a mostrar todos los planes justo
+      // después de llamarlo los devolvía a la página antes de que el
+      // navegador armara el PDF/vista previa, y salían todos. La clase
+      // "plan-col-hidden" solo oculta al imprimir (no afecta la pantalla),
+      // así que alcanza con restaurar recién cuando el navegador avisa que
+      // terminó ("afterprint"); si no avisa (algunos navegadores móviles),
+      // queda la selección hasta el próximo "Imprimir", donde se recalcula.
+      window.addEventListener("afterprint", () => setTimeout(() => setHiddenPlans(new Set()), 1000), { once: true });
       window.print();
-      setHiddenPlans(new Set());
     }, 150);
   }
 
