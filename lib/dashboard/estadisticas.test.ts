@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { etiquetaMes, hoyAR, limitesMesAR, mesAR, mesesQueCorresponden } from "../fechas";
 import { puedeVerDashboard } from "./acceso";
-import { resumirPorEmpresa, resumirPorPersona, type CotizacionDash, type PersonaDash } from "./estadisticas";
+import { actividadPorMes, resumirPorEmpresa, resumirPorPersona, tuvoActividad, type CotizacionDash, type PersonaDash } from "./estadisticas";
 
 const persona = (id: string, empresa: string, extra: Partial<PersonaDash> = {}): PersonaDash => ({
   id,
@@ -128,5 +128,32 @@ describe("resumirPorPersona", () => {
     const r = resumirPorPersona({ personas: [personas[1]], cotizaciones, meses: ["2026-09"] });
     expect(r.totalCotizaciones).toBe(1);
     expect(r.promedio).toBe(1);
+  });
+});
+
+describe("actividad por mes (filtros: no ofrecer a quien no cotizó en el período)", () => {
+  const personas = [persona("a1", "A"), persona("a2", "A"), persona("b1", "B")];
+  const cotizaciones = [
+    cot("a1", "2026-09-10T15:00:00+00:00"),
+    cot("a1", "2026-10-10T15:00:00+00:00"),
+    cot("b1", "2026-10-11T15:00:00+00:00"),
+    cot("a1", "2026-10-01T01:00:00+00:00"), // 30/09 22:00 en Argentina: cuenta como septiembre
+  ];
+
+  it("arma los meses con cotizaciones de cada persona y de cada empresa (la del autor)", () => {
+    const r = actividadPorMes(cotizaciones, personas);
+    expect(r.personas["a1"]).toEqual(["2026-09", "2026-10"]);
+    expect(r.personas["b1"]).toEqual(["2026-10"]);
+    expect(r.personas["a2"]).toBeUndefined(); // nunca cotizó
+    expect(r.empresas["A"]).toEqual(["2026-09", "2026-10"]);
+    expect(r.empresas["B"]).toEqual(["2026-10"]);
+  });
+
+  it("tuvoActividad: alcanza con un mes de los elegidos; sin actividad no se ofrece", () => {
+    const r = actividadPorMes(cotizaciones, personas);
+    expect(tuvoActividad(r.personas["b1"], ["2026-09"])).toBe(false);
+    expect(tuvoActividad(r.personas["b1"], ["2026-09", "2026-10"])).toBe(true);
+    expect(tuvoActividad(r.personas["a2"], ["2026-10"])).toBe(false);
+    expect(tuvoActividad(r.personas["a1"], [])).toBe(false);
   });
 });

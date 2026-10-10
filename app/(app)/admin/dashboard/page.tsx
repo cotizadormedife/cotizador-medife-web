@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { claveMes, hoyAR, mesesQueCorresponden } from "@/lib/fechas";
 import { DASHBOARD_RELEASE_APROBADO, puedeVerDashboard } from "@/lib/dashboard/acceso";
-import { cargarCotizaciones, cargarEmpresasYPersonas } from "@/lib/dashboard/cargar";
-import { etiquetaConGrupo, nombrePersona, resumirPorEmpresa, resumirPorPersona } from "@/lib/dashboard/estadisticas";
+import { cargarCotizacionesRango, cargarEmpresasYPersonas } from "@/lib/dashboard/cargar";
+import { actividadPorMes, etiquetaConGrupo, nombrePersona, resumirPorEmpresa, resumirPorPersona, tuvoActividad } from "@/lib/dashboard/estadisticas";
 import DashboardFilters from "./DashboardFilters";
 import { Comparativa, Tarjetas } from "./Resultados";
 
@@ -45,7 +45,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const claves = mesesElegidos.map((m) => claveMes(anio, m));
   const anios = Array.from({ length: Math.max(hoy.anio, PRIMER_ANIO_CON_DATOS) - PRIMER_ANIO_CON_DATOS + 1 }, (_, i) => PRIMER_ANIO_CON_DATOS + i);
 
-  const [{ empresas, personas }, cotizaciones] = await Promise.all([cargarEmpresasYPersonas(), cargarCotizaciones(claves)]);
+  const [{ empresas, personas }, cotizaciones] = await Promise.all([cargarEmpresasYPersonas(), cargarCotizacionesRango(claveMes(PRIMER_ANIO_CON_DATOS, 1), claveMes(hoy.anio, hoy.mes))]);
+  // Las estadísticas filtran por los meses elegidos; el año completo sirve para saber
+  // quién tuvo actividad en cada mes (los filtros solo ofrecen a quien cotizó en el período).
+  const actividad = actividadPorMes(cotizaciones, personas);
   const todasLasEmpresasIds = empresas.map((e) => e.id);
 
   // Empresas elegidas (super_admin). Un admin queda siempre limitado a la suya.
@@ -60,9 +63,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // Personas que se pueden elegir: aprobadas, de los grupos permitidos.
   const nombreEmpresa = new Map(empresas.map((e) => [e.id, e.nombre]));
   const alcance = new Set(empresasElegidasIds);
-  const candidatas = personas
+  const enAlcance = personas
     .filter((p) => p.status === "approved" && p.empresa_id && alcance.has(p.empresa_id))
     .sort((a, b) => nombrePersona(a).localeCompare(nombrePersona(b), "es"));
+  const candidatas = enAlcance.filter((p) => tuvoActividad(actividad.personas[p.id], claves));
   const personasElegidas = !aplicado || sp.todasPersonas === "1" ? candidatas : candidatas.filter((p) => new Set(lista(sp.persona)).has(p.id));
 
   const estadistica =
@@ -97,7 +101,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         tab={tab}
         esSuper={esSuper}
         empresas={tab === "empresas" || esSuper ? empresas : []}
-        personas={tab === "personas" ? candidatas.map((p) => ({ id: p.id, nombre: etiquetaConGrupo(p, esSuper ? nombreEmpresa.get(p.empresa_id ?? "") : null), empresaId: p.empresa_id, deshabilitada: !!p.disabled_at })) : []}
+        personas={tab === "personas" ? enAlcance.map((p) => ({ id: p.id, nombre: etiquetaConGrupo(p, esSuper ? nombreEmpresa.get(p.empresa_id ?? "") : null), empresaId: p.empresa_id, deshabilitada: !!p.disabled_at })) : []}
+        actividad={{
+          personas: tab === "personas" ? Object.fromEntries(enAlcance.map((p) => [p.id, actividad.personas[p.id] ?? []])) : {},
+          empresas: actividad.empresas,
+        }}
         hoy={hoy}
         anios={anios}
         inicial={{ anio, meses: mesesElegidos, empresasSel: empresasElegidasIds, personasSel: personasElegidas.map((p) => p.id) }}

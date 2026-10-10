@@ -138,3 +138,27 @@ export function resumirPorPersona(args: {
   }
   return armar(meses, filas, args.personas.length, autores.size);
 }
+
+// Filtros del Dashboard: en qué meses cotizó cada persona y cada empresa (la
+// empresa es la del autor), para no ofrecer a quien no tuvo cotizaciones en el período.
+export type ActividadPorMes = { personas: Record<string, ClaveMes[]>; empresas: Record<string, ClaveMes[]> };
+
+export function actividadPorMes(cotizaciones: CotizacionDash[], personas: Pick<PersonaDash, "id" | "empresa_id">[]): ActividadPorMes {
+  const empresaDe = new Map(personas.map((p) => [p.id, p.empresa_id]));
+  const porPersona = new Map<string, Set<ClaveMes>>();
+  const porEmpresa = new Map<string, Set<ClaveMes>>();
+  const sumar = (m: Map<string, Set<ClaveMes>>, id: string, mes: ClaveMes) => (m.get(id) ?? m.set(id, new Set()).get(id)!).add(mes);
+  for (const c of cotizaciones) {
+    const mes = mesAR(c.created_at);
+    sumar(porPersona, c.created_by, mes);
+    const empresaId = empresaDe.get(c.created_by);
+    if (empresaId) sumar(porEmpresa, empresaId, mes);
+  }
+  const plano = (m: Map<string, Set<ClaveMes>>) => Object.fromEntries([...m].map(([id, meses]) => [id, [...meses].sort()]));
+  return { personas: plano(porPersona), empresas: plano(porEmpresa) };
+}
+
+// ¿Tuvo cotizaciones en alguno de los meses elegidos?
+export function tuvoActividad(mesesConActividad: ClaveMes[] | undefined, elegidos: ClaveMes[]): boolean {
+  return !!mesesConActividad && elegidos.some((m) => mesesConActividad.includes(m));
+}

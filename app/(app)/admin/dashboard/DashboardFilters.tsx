@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { mesesQueCorresponden } from "@/lib/fechas";
+import { claveMes, mesesQueCorresponden, type ClaveMes } from "@/lib/fechas";
+import { tuvoActividad } from "@/lib/dashboard/estadisticas";
 
 // RF-106: filtros del Dashboard. Los checkboxes "Todas" / "Todo el año" son
 // atajos de la pantalla; lo que viaja en la URL es corto (flags en vez de
@@ -18,6 +19,7 @@ export default function DashboardFilters({
   esSuper,
   empresas,
   personas,
+  actividad,
   hoy,
   anios,
   inicial,
@@ -27,6 +29,7 @@ export default function DashboardFilters({
   esSuper: boolean;
   empresas: Empresa[];
   personas: Persona[];
+  actividad: { personas: Record<string, ClaveMes[]>; empresas: Record<string, ClaveMes[]> }; // meses con cotizaciones de cada uno
   hoy: { anio: number; mes: number };
   anios: number[];
   inicial: { anio: number; meses: number[]; empresasSel: string[]; personasSel: string[] };
@@ -42,19 +45,40 @@ export default function DashboardFilters({
   const todoElAnio = disponibles.length > 0 && disponibles.every((m) => meses.has(m));
 
   const eligeEmpresas = tab === "empresas" || (tab === "personas" && esSuper);
-  const todasEmpresas = empresas.length > 0 && empresasSel.size === empresas.length;
 
-  // Personas del/los grupo(s) elegido(s); "Todas" = todas esas.
-  const delGrupo = tab === "personas" ? personas.filter((p) => !esSuper || (p.empresaId != null && empresasSel.has(p.empresaId))) : [];
+  // Solo se ofrecen empresas y personas que tuvieron cotizaciones en los meses elegidos.
+  const clavesDe = (a: number, ms: Set<number>): ClaveMes[] => [...ms].map((m) => claveMes(a, m));
+  const visibleEmpresas = (cl: ClaveMes[]) => (eligeEmpresas ? empresas.filter((e) => tuvoActividad(actividad.empresas[e.id], cl)) : []);
+  const visiblePersonas = (cl: ClaveMes[], empSel: Set<string>) =>
+    tab === "personas" ? personas.filter((p) => (!esSuper || (p.empresaId != null && empSel.has(p.empresaId))) && tuvoActividad(actividad.personas[p.id], cl)) : [];
+
+  const claves = clavesDe(anio, meses);
+  const empresasVisibles = visibleEmpresas(claves);
+  const empresasElegidas = empresasVisibles.filter((e) => empresasSel.has(e.id));
+  const todasEmpresas = empresasVisibles.length > 0 && empresasElegidas.length === empresasVisibles.length;
+
+  // Personas del/los grupo(s) elegido(s) con actividad; "Todas" = todas esas.
+  const delGrupo = visiblePersonas(claves, empresasSel);
   const q = busqueda.trim().toLowerCase();
   const visibles = q ? delGrupo.filter((p) => p.nombre.toLowerCase().includes(q)) : delGrupo;
   const personasElegidas = delGrupo.filter((p) => personasSel.has(p.id));
   const todasPersonas = delGrupo.length > 0 && personasElegidas.length === delGrupo.length;
 
+  // Al cambiar el período cambia quién tuvo actividad: si estaba tildado "Todas",
+  // sigue tildado sobre los que quedan disponibles.
+  const cambiarPeriodo = (nuevoAnio: number, nuevosMeses: Set<number>) => {
+    const cl = clavesDe(nuevoAnio, nuevosMeses);
+    const eraTodasEmpresas = empresasVisibles.every((e) => empresasSel.has(e.id));
+    const eraTodasPersonas = delGrupo.every((p) => personasSel.has(p.id));
+    const nuevasEmpresas = eraTodasEmpresas ? new Set(visibleEmpresas(cl).map((e) => e.id)) : empresasSel;
+    if (eraTodasEmpresas) setEmpresasSel(nuevasEmpresas);
+    if (eraTodasPersonas) setPersonasSel(new Set(visiblePersonas(cl, nuevasEmpresas).map((p) => p.id)));
+    setAnio(nuevoAnio);
+    setMeses(nuevosMeses);
+  };
   const cambiarAnio = (nuevo: number) => {
     const nuevosDisponibles = mesesQueCorresponden(nuevo, hoy);
-    setMeses(todoElAnio ? new Set(nuevosDisponibles) : new Set([...meses].filter((m) => nuevosDisponibles.includes(m))));
-    setAnio(nuevo);
+    cambiarPeriodo(nuevo, todoElAnio ? new Set(nuevosDisponibles) : new Set([...meses].filter((m) => nuevosDisponibles.includes(m))));
   };
   const alternar = <T,>(set: Set<T>, valor: T, marcado: boolean) => {
     const copia = new Set(set);
@@ -64,7 +88,7 @@ export default function DashboardFilters({
   };
 
   const sinMeses = meses.size === 0;
-  const sinEntidades = tab === "empresas" ? empresasSel.size === 0 : personasElegidas.length === 0;
+  const sinEntidades = tab === "empresas" ? empresasElegidas.length === 0 : personasElegidas.length === 0;
 
   return (
     <form method="get" action="/admin/dashboard" className="card">
@@ -74,7 +98,7 @@ export default function DashboardFilters({
       {[...meses].sort((a, b) => a - b).map((m) => (
         <input key={m} type="hidden" name="mes" value={m} />
       ))}
-      {eligeEmpresas && (todasEmpresas ? <input type="hidden" name="todasEmpresas" value="1" /> : [...empresasSel].map((id) => <input key={id} type="hidden" name="empresa" value={id} />))}
+      {eligeEmpresas && (todasEmpresas ? <input type="hidden" name="todasEmpresas" value="1" /> : empresasElegidas.map((e) => <input key={e.id} type="hidden" name="empresa" value={e.id} />))}
       {tab === "personas" && (todasPersonas ? <input type="hidden" name="todasPersonas" value="1" /> : personasElegidas.map((p) => <input key={p.id} type="hidden" name="persona" value={p.id} />))}
 
       <div className="dash-filtros-grupo">
@@ -95,7 +119,7 @@ export default function DashboardFilters({
               type="checkbox"
               checked={todoElAnio}
               disabled={disponibles.length === 0}
-              onChange={(e) => setMeses(e.target.checked ? new Set(disponibles) : new Set())}
+              onChange={(e) => cambiarPeriodo(anio, e.target.checked ? new Set(disponibles) : new Set())}
             />
             Todo el año
           </label>
@@ -106,7 +130,7 @@ export default function DashboardFilters({
             const habilitado = disponibles.includes(m);
             return (
               <label key={m} className="dash-chip">
-                <input type="checkbox" checked={meses.has(m)} disabled={!habilitado} onChange={(e) => setMeses(alternar(meses, m, e.target.checked))} />
+                <input type="checkbox" checked={meses.has(m)} disabled={!habilitado} onChange={(e) => cambiarPeriodo(anio, alternar(meses, m, e.target.checked))} />
                 {nombre}
               </label>
             );
@@ -117,19 +141,20 @@ export default function DashboardFilters({
       {eligeEmpresas && (
         <details className="dash-seccion" open={abiertoPorDefecto}>
           <summary>
-            Empresas / Grupos <span className="dash-seccion-detalle">({empresasSel.size} de {empresas.length} elegidas)</span>
+            Empresas / Grupos <span className="dash-seccion-detalle">({empresasElegidas.length} de {empresasVisibles.length} elegidas)</span>
           </summary>
           <div className="dash-lista">
             <label className="dash-chip" style={{ fontWeight: 700 }}>
-              <input type="checkbox" checked={todasEmpresas} onChange={(e) => setEmpresasSel(e.target.checked ? new Set(empresas.map((x) => x.id)) : new Set())} />
+              <input type="checkbox" checked={todasEmpresas} onChange={(e) => setEmpresasSel(e.target.checked ? new Set(empresasVisibles.map((x) => x.id)) : new Set())} />
               Todas
             </label>
-            {empresas.map((e) => (
+            {empresasVisibles.map((e) => (
               <label key={e.id} className="dash-chip">
                 <input type="checkbox" checked={empresasSel.has(e.id)} onChange={(ev) => setEmpresasSel(alternar(empresasSel, e.id, ev.target.checked))} />
                 {e.nombre}
               </label>
             ))}
+            {empresasVisibles.length === 0 && <span style={{ fontSize: 13, color: "var(--text-neutral)" }}>Ninguna empresa o grupo tuvo cotizaciones en el período elegido.</span>}
           </div>
         </details>
       )}
@@ -166,7 +191,7 @@ export default function DashboardFilters({
                 {p.deshabilitada ? " (deshabilitado)" : ""}
               </label>
             ))}
-            {visibles.length === 0 && <span style={{ fontSize: 13, color: "var(--text-neutral)" }}>No hay personas para mostrar.</span>}
+            {visibles.length === 0 && <span style={{ fontSize: 13, color: "var(--text-neutral)" }}>{delGrupo.length === 0 ? "Nadie tuvo cotizaciones en el período elegido." : "No hay personas para mostrar."}</span>}
           </div>
         </details>
       )}
