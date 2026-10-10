@@ -6,7 +6,7 @@ import { DASHBOARD_RELEASE_APROBADO, puedeVerDashboard } from "@/lib/dashboard/a
 import { cargarCotizaciones, cargarEmpresasYPersonas } from "@/lib/dashboard/cargar";
 import { nombrePersona, resumirPorEmpresa, resumirPorPersona } from "@/lib/dashboard/estadisticas";
 import DashboardFilters from "./DashboardFilters";
-import { BarrasPorEntidad, ColumnasPorMes, Tarjetas, TablaDetalle } from "./Resultados";
+import { Comparativa, Tarjetas } from "./Resultados";
 
 type Param = string | string[] | undefined;
 type SearchParams = {
@@ -100,6 +100,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         hoy={hoy}
         anios={anios}
         inicial={{ anio, meses: mesesElegidos, empresasSel: empresasElegidasIds, personasSel: personasElegidas.map((p) => p.id) }}
+        abiertoPorDefecto={!aplicado}
       />
 
       {!hayFiltro ? (
@@ -115,9 +116,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             }
             detallePromedio={tab === "empresas" ? "Cotizaciones ÷ vendedores" : `Cotizaciones ÷ ${estadistica.totalVendedores} ${estadistica.totalVendedores === 1 ? "persona elegida" : "personas elegidas"}`}
           />
-          <BarrasPorEntidad e={estadistica} titulo={tab === "empresas" ? "Comparativa entre empresas / grupos" : "Comparativa entre personas"} />
-          <ColumnasPorMes e={estadistica} />
-          <TablaDetalle e={estadistica} encabezado={tab === "empresas" ? "Empresa / Grupo" : "Persona"} />
+          <Comparativa
+            e={estadistica}
+            singular={tab === "empresas" ? "empresa o grupo" : "persona"}
+            plural={tab === "empresas" ? "empresas y grupos" : "personas"}
+          />
         </>
       )}
     </div>

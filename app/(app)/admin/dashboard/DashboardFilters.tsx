@@ -21,6 +21,7 @@ export default function DashboardFilters({
   hoy,
   anios,
   inicial,
+  abiertoPorDefecto,
 }: {
   tab: "personas" | "empresas";
   esSuper: boolean;
@@ -29,6 +30,7 @@ export default function DashboardFilters({
   hoy: { anio: number; mes: number };
   anios: number[];
   inicial: { anio: number; meses: number[]; empresasSel: string[]; personasSel: string[] };
+  abiertoPorDefecto: boolean;
 }) {
   const [anio, setAnio] = useState(inicial.anio);
   const [meses, setMeses] = useState<Set<number>>(new Set(inicial.meses));
@@ -113,8 +115,10 @@ export default function DashboardFilters({
       </div>
 
       {eligeEmpresas && (
-        <div className="dash-filtros-grupo">
-          <p className="dash-filtros-titulo">Empresas / Grupos</p>
+        <details className="dash-seccion" open={abiertoPorDefecto}>
+          <summary>
+            Empresas / Grupos <span className="dash-seccion-detalle">({empresasSel.size} de {empresas.length} elegidas)</span>
+          </summary>
           <div className="dash-lista">
             <label className="dash-chip" style={{ fontWeight: 700 }}>
               <input type="checkbox" checked={todasEmpresas} onChange={(e) => setEmpresasSel(e.target.checked ? new Set(empresas.map((x) => x.id)) : new Set())} />
@@ -127,12 +131,15 @@ export default function DashboardFilters({
               </label>
             ))}
           </div>
-        </div>
+        </details>
       )}
 
       {tab === "personas" && (
-        <div className="dash-filtros-grupo">
-          <p className="dash-filtros-titulo">{esSuper ? "Personas" : "Personas de tu grupo"}</p>
+        <details className="dash-seccion" open={abiertoPorDefecto}>
+          <summary>
+            {esSuper ? "Personas" : "Personas de tu grupo"}{" "}
+            <span className="dash-seccion-detalle">({personasElegidas.length} de {delGrupo.length} elegidas)</span>
+          </summary>
           <input
             type="search"
             placeholder="Buscar por nombre o email"
@@ -161,7 +168,7 @@ export default function DashboardFilters({
             ))}
             {visibles.length === 0 && <span style={{ fontSize: 13, color: "var(--text-neutral)" }}>No hay personas para mostrar.</span>}
           </div>
-        </div>
+        </details>
       )}
 
       <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>

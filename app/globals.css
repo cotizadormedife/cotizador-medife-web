@@ -288,106 +288,128 @@ a {
   font-size: 12px;
   line-height: 1.35;
 }
-.dash-barras {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 560px;
-  overflow: auto;
-  padding-right: 6px;
+.dash-seccion {
+  margin-bottom: 18px;
 }
-.dash-barra-fila {
-  display: grid;
-  grid-template-columns: minmax(110px, 240px) 1fr;
-  align-items: center;
-  gap: 12px;
+.dash-seccion > summary {
+  cursor: pointer;
   font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 8px;
 }
-.dash-barra-etiqueta {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-primary);
+.dash-seccion > summary .dash-seccion-detalle {
+  font-weight: 400;
+  color: var(--text-neutral);
 }
-.dash-barra-pista {
+.dash-leyenda {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+}
+.dash-leyenda li {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 22px;
-}
-.dash-barra {
-  height: 20px;
-  min-width: 2px;
-  background: var(--brand-orange);
-  border-radius: 0 4px 4px 0;
-  transition: filter 0.15s;
-}
-.dash-barra-fila:hover .dash-barra,
-.dash-columna-cel:hover .dash-columna {
-  filter: brightness(0.85);
-}
-.dash-valor {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-size: 13px;
   color: var(--text-primary);
 }
-.dash-columnas {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  min-height: 210px;
-  border-bottom: 1px solid var(--border-default);
-  overflow-x: auto;
+.dash-leyenda-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex: none;
 }
-.dash-columna-cel {
-  flex: 1 1 0;
-  min-width: 44px;
+.dash-leyenda-nombre {
+  font-weight: 600;
+}
+.dash-leyenda-total {
+  color: var(--text-neutral);
+  font-variant-numeric: tabular-nums;
+}
+.dash-comp {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.dash-comp-eje {
+  position: relative;
+  flex: none;
+  width: 46px;
+  margin-top: 22px; /* mismo margen que el área de barras: deja lugar al número de la barra más alta */
+}
+.dash-comp-eje span {
+  position: absolute;
+  right: 0;
+  transform: translateY(50%);
+  font-size: 11px;
+  color: var(--text-neutral);
+  font-variant-numeric: tabular-nums;
+}
+.dash-comp-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  padding-top: 22px;
+}
+.dash-comp-plot {
+  position: relative;
+  min-width: 100%;
+  width: max-content;
+}
+.dash-comp-linea {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid var(--border-disabled);
+}
+.dash-comp-clusters {
+  position: relative;
+  display: flex;
+  height: 100%;
+  gap: 18px;
+  padding: 0 10px;
+}
+.dash-comp-cluster {
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
 }
-.dash-columna {
-  width: 24px;
-  min-height: 2px;
-  background: var(--brand-orange);
+.dash-comp-barras {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+.dash-comp-barra {
+  position: relative;
   border-radius: 4px 4px 0 0;
   transition: filter 0.15s;
 }
-.dash-columnas-etiquetas {
-  display: flex;
-  gap: 10px;
-  margin-top: 6px;
-  overflow-x: auto;
+.dash-comp-barra:hover {
+  filter: brightness(0.88);
 }
-.dash-columnas-etiquetas span {
-  flex: 1 1 0;
-  min-width: 44px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-neutral);
-}
-.dash-tabla {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-.dash-tabla th,
-.dash-tabla td {
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--border-disabled);
-  text-align: right;
+.dash-comp-valor {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding-bottom: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.dash-tabla th:first-child,
-.dash-tabla td:first-child {
-  text-align: left;
-  white-space: normal;
-}
-.dash-tabla thead th {
-  border-bottom: 2px solid var(--border-default);
+.dash-comp-mes {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-neutral);
+  white-space: nowrap;
 }
 
 /* ── Impresión / PDF de cotización ──────────────────────────── */
