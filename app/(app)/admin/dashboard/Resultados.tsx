@@ -10,35 +10,25 @@ import { anchoBarra, elegirSeries, escalaY, estiloSerie, mostrarValores } from "
 const fmtEntero = (n: number) => n.toLocaleString("es-AR");
 const fmtPromedio = (n: number) => n.toLocaleString("es-AR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-export function Tarjetas({
-  e,
-  vendedores,
-  detallePromedio,
-}: {
-  e: Estadistica;
-  vendedores?: { etiqueta: string; detalle: string };
-  detallePromedio: string;
-}) {
+export type Tarjeta = { color: "naranja" | "carbon" | "azul"; etiqueta: string; valor: string; detalle: string };
+
+export const tarjetaNumero = (color: Tarjeta["color"], etiqueta: string, n: number, detalle: string): Tarjeta => ({ color, etiqueta, valor: fmtEntero(n), detalle });
+export const tarjetaPromedio = (etiqueta: string, n: number, detalle: string): Tarjeta => ({ color: "azul", etiqueta, valor: fmtPromedio(n), detalle });
+
+export function Tarjetas({ titulo, tarjetas, compacto }: { titulo?: string; tarjetas: Tarjeta[]; compacto?: boolean }) {
   return (
-    <div className="dash-tiles">
-      {vendedores && (
-        <div className="dash-tile dash-tile--naranja">
-          <div className="dash-tile-label">{vendedores.etiqueta}</div>
-          <div className="dash-tile-valor">{fmtEntero(e.totalVendedores)}</div>
-          <div className="dash-tile-detalle">{vendedores.detalle}</div>
-        </div>
-      )}
-      <div className="dash-tile dash-tile--carbon">
-        <div className="dash-tile-label">Cantidad de cotizaciones</div>
-        <div className="dash-tile-valor">{fmtEntero(e.totalCotizaciones)}</div>
-        <div className="dash-tile-detalle">En el período elegido</div>
+    <section aria-label={titulo}>
+      {titulo && <h2 className="dash-tiles-titulo">{titulo}</h2>}
+      <div className={compacto ? "dash-tiles dash-tiles--general" : "dash-tiles"}>
+        {tarjetas.map((t) => (
+          <div key={t.etiqueta} className={`dash-tile dash-tile--${t.color}`}>
+            <div className="dash-tile-label">{t.etiqueta}</div>
+            <div className="dash-tile-valor">{t.valor}</div>
+            <div className="dash-tile-detalle">{t.detalle}</div>
+          </div>
+        ))}
       </div>
-      <div className="dash-tile dash-tile--azul">
-        <div className="dash-tile-label">Promedio de cotizaciones por vendedor</div>
-        <div className="dash-tile-valor">{fmtPromedio(e.promedio)}</div>
-        <div className="dash-tile-detalle">{detallePromedio}</div>
-      </div>
-    </div>
+    </section>
   );
 }
 

@@ -162,3 +162,16 @@ export function actividadPorMes(cotizaciones: CotizacionDash[], personas: Pick<P
 export function tuvoActividad(mesesConActividad: ClaveMes[] | undefined, elegidos: ClaveMes[]): boolean {
   return !!mesesConActividad && elegidos.some((m) => mesesConActividad.includes(m));
 }
+
+// Totales de toda la aplicación (pestaña Empresas/Grupos, siempre visibles):
+// vendedores activos = usuarios aprobados y habilitados hoy; grupos activos =
+// empresas/brokers con al menos un vendedor activo.
+export function resumenGeneral(
+  empresas: Pick<EmpresaDash, "id">[],
+  personas: Pick<PersonaDash, "empresa_id" | "status" | "disabled_at">[]
+): { gruposActivos: number; vendedoresActivos: number } {
+  const ids = new Set(empresas.map((e) => e.id));
+  const activos = personas.filter(esVendedorActivo);
+  const grupos = new Set(activos.map((p) => p.empresa_id).filter((id): id is string => !!id && ids.has(id)));
+  return { gruposActivos: grupos.size, vendedoresActivos: activos.length };
+}

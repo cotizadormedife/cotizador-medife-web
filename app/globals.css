@@ -264,6 +264,19 @@ a {
   flex-direction: column;
   justify-content: space-between;
 }
+.dash-tiles-titulo {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: var(--text-neutral);
+}
+.dash-tiles--general .dash-tile {
+  min-height: 130px;
+  padding: 16px 18px;
+}
+.dash-tiles--general .dash-tile-valor {
+  font-size: 38px;
+}
 .dash-tile--naranja {
   background: #e35205;
 }

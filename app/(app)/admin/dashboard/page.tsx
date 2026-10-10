@@ -4,9 +4,9 @@ import { requireRole } from "@/lib/auth/session";
 import { claveMes, hoyAR, mesesQueCorresponden } from "@/lib/fechas";
 import { DASHBOARD_RELEASE_APROBADO, puedeVerDashboard } from "@/lib/dashboard/acceso";
 import { cargarCotizacionesRango, cargarEmpresasYPersonas } from "@/lib/dashboard/cargar";
-import { actividadPorMes, etiquetaConGrupo, nombrePersona, resumirPorEmpresa, resumirPorPersona, tuvoActividad } from "@/lib/dashboard/estadisticas";
+import { actividadPorMes, etiquetaConGrupo, nombrePersona, resumenGeneral, resumirPorEmpresa, resumirPorPersona, tuvoActividad } from "@/lib/dashboard/estadisticas";
 import DashboardFilters from "./DashboardFilters";
-import { Comparativa, Tarjetas } from "./Resultados";
+import { Comparativa, Tarjetas, tarjetaNumero, tarjetaPromedio } from "./Resultados";
 
 type Param = string | string[] | undefined;
 type SearchParams = {
@@ -69,12 +69,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const candidatas = enAlcance.filter((p) => tuvoActividad(actividad.personas[p.id], claves));
   const personasElegidas = !aplicado || sp.todasPersonas === "1" ? candidatas : candidatas.filter((p) => new Set(lista(sp.persona)).has(p.id));
 
+  // Empresas/Grupos elegidos que cotizaron en el período: son las que ofrece el filtro y las que se cuentan.
+  const empresasActivasElegidasIds = empresasElegidasIds.filter((id) => !esSuper || tuvoActividad(actividad.empresas[id], claves));
+
   const estadistica =
     tab === "empresas"
-      ? resumirPorEmpresa({ empresas: empresas.filter((e) => empresasElegidasIds.includes(e.id)), personas, cotizaciones, meses: claves })
+      ? resumirPorEmpresa({ empresas: empresas.filter((e) => empresasActivasElegidasIds.includes(e.id)), personas, cotizaciones, meses: claves })
       : resumirPorPersona({ personas: personasElegidas, cotizaciones, meses: claves, empresas: esSuper ? empresas : undefined });
 
   const hayFiltro = claves.length > 0;
+
+  // Pestaña Empresas/Grupos: totales de toda la aplicación (siempre visibles, no dependen de la selección).
+  const general = resumenGeneral(empresas, personas);
+  const cotizacionesGenerales = hayFiltro ? resumirPorEmpresa({ empresas, personas, cotizaciones, meses: claves }).totalCotizaciones : null;
 
   return (
     <div>
@@ -96,6 +103,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         )}
       </nav>
 
+      {tab === "empresas" && (
+        <Tarjetas
+          titulo="Total de la aplicación"
+          compacto
+          tarjetas={[
+            tarjetaNumero("naranja", "Brokers / Grupos activos", general.gruposActivos, "Con al menos un vendedor activo"),
+            tarjetaNumero("naranja", "Vendedores activos", general.vendedoresActivos, "Usuarios aprobados y habilitados hoy"),
+            ...(cotizacionesGenerales === null
+              ? []
+              : [
+                  tarjetaNumero("carbon", "Cotizaciones (todos los grupos)", cotizacionesGenerales, "En el período elegido"),
+                  tarjetaPromedio("Promedio por vendedor activo", general.vendedoresActivos > 0 ? cotizacionesGenerales / general.vendedoresActivos : 0, "Cotizaciones ÷ vendedores activos"),
+                ]),
+          ]}
+        />
+      )}
+
       <DashboardFilters
         key={`${tab}-${aplicado ? "f" : "d"}-${sp.anio ?? ""}`}
         tab={tab}
@@ -108,7 +132,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         }}
         hoy={hoy}
         anios={anios}
-        inicial={{ anio, meses: mesesElegidos, empresasSel: empresasElegidasIds, personasSel: personasElegidas.map((p) => p.id) }}
+        inicial={{ anio, meses: mesesElegidos, empresasSel: empresasActivasElegidasIds, personasSel: personasElegidas.map((p) => p.id) }}
         abiertoPorDefecto={!aplicado}
       />
 
@@ -116,15 +140,28 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <p style={{ color: "var(--text-neutral)" }}>Elegí al menos un mes para ver las estadísticas.</p>
       ) : (
         <>
-          <Tarjetas
-            e={estadistica}
-            vendedores={
-              tab === "empresas"
-                ? { etiqueta: "Cantidad de vendedores", detalle: `${estadistica.vendedoresQueCotizaron} cotizaron en el período · vendedores = usuarios aprobados y habilitados de las empresas elegidas` }
-                : undefined
-            }
-            detallePromedio={tab === "empresas" ? "Cotizaciones ÷ vendedores" : `Cotizaciones ÷ ${estadistica.totalVendedores} ${estadistica.totalVendedores === 1 ? "persona elegida" : "personas elegidas"}`}
-          />
+          {tab === "empresas" ? (
+            <Tarjetas
+              titulo="Selección"
+              tarjetas={[
+                tarjetaNumero("naranja", "Grupos seleccionados", estadistica.filas.length, `De ${general.gruposActivos} grupos activos en total`),
+                tarjetaNumero("naranja", "Cantidad de vendedores seleccionados", estadistica.totalVendedores, `${estadistica.vendedoresQueCotizaron} cotizaron en el período · vendedores = usuarios aprobados y habilitados de los grupos elegidos`),
+                tarjetaNumero("carbon", "Cantidad de cotizaciones", estadistica.totalCotizaciones, "De los grupos elegidos, en el período"),
+                tarjetaPromedio("Promedio de cotizaciones por vendedor", estadistica.promedio, "Cotizaciones ÷ vendedores seleccionados"),
+              ]}
+            />
+          ) : (
+            <Tarjetas
+              tarjetas={[
+                tarjetaNumero("carbon", "Cantidad de cotizaciones", estadistica.totalCotizaciones, "En el período elegido"),
+                tarjetaPromedio(
+                  "Promedio de cotizaciones por vendedor",
+                  estadistica.promedio,
+                  `Cotizaciones ÷ ${estadistica.totalVendedores} ${estadistica.totalVendedores === 1 ? "persona elegida" : "personas elegidas"}`
+                ),
+              ]}
+            />
+          )}
           <Comparativa
             e={estadistica}
             singular={tab === "empresas" ? "empresa o grupo" : "persona"}

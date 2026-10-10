@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { etiquetaMes, hoyAR, limitesMesAR, mesAR, mesesQueCorresponden } from "../fechas";
 import { puedeVerDashboard } from "./acceso";
-import { actividadPorMes, resumirPorEmpresa, resumirPorPersona, tuvoActividad, type CotizacionDash, type PersonaDash } from "./estadisticas";
+import { actividadPorMes, resumenGeneral, resumirPorEmpresa, resumirPorPersona, tuvoActividad, type CotizacionDash, type PersonaDash } from "./estadisticas";
 
 const persona = (id: string, empresa: string, extra: Partial<PersonaDash> = {}): PersonaDash => ({
   id,
@@ -155,5 +155,21 @@ describe("actividad por mes (filtros: no ofrecer a quien no cotizó en el perío
     expect(tuvoActividad(r.personas["b1"], ["2026-09", "2026-10"])).toBe(true);
     expect(tuvoActividad(r.personas["a2"], ["2026-10"])).toBe(false);
     expect(tuvoActividad(r.personas["a1"], [])).toBe(false);
+  });
+});
+
+describe("resumenGeneral (totales de toda la aplicación)", () => {
+  const empresas = [{ id: "A" }, { id: "B" }, { id: "C" }];
+  it("cuenta vendedores activos y grupos con al menos un vendedor activo", () => {
+    const personas = [
+      persona("a1", "A"),
+      persona("a2", "A"),
+      persona("b1", "B", { disabled_at: "2026-10-01T00:00:00+00:00" }), // deshabilitado: no cuenta
+      persona("c1", "C", { status: "pending_approval" }), // sin aprobar: no cuenta
+    ];
+    expect(resumenGeneral(empresas, personas)).toEqual({ gruposActivos: 1, vendedoresActivos: 2 });
+  });
+  it("un grupo con un solo vendedor activo cuenta como activo", () => {
+    expect(resumenGeneral(empresas, [persona("b1", "B")])).toEqual({ gruposActivos: 1, vendedoresActivos: 1 });
   });
 });
