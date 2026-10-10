@@ -76,3 +76,10 @@ export async function cargarCotizacionesRango(primerMes: ClaveMes, ultimoMes: Cl
   }
   return todo;
 }
+
+// Total histórico de cotizaciones de toda la aplicación.
+export async function cargarTotalCotizaciones(): Promise<number> {
+  const { count, error } = await createServiceClient().from("quotes").select("id", { count: "exact", head: true });
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}

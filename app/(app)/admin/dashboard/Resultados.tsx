@@ -10,9 +10,16 @@ import { anchoBarra, elegirSeries, escalaY, estiloSerie, mostrarValores } from "
 const fmtEntero = (n: number) => n.toLocaleString("es-AR");
 const fmtPromedio = (n: number) => n.toLocaleString("es-AR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-export type Tarjeta = { color: "naranja" | "carbon" | "azul"; etiqueta: string; valor: string; detalle: string };
+export type Tarjeta = {
+  color: "naranja" | "carbon" | "azul";
+  etiqueta: string;
+  valor: string;
+  detalle?: string;
+  desglose?: { etiqueta: string; valor: string }[]; // cifras chicas dentro de la misma tarjeta
+};
 
-export const tarjetaNumero = (color: Tarjeta["color"], etiqueta: string, n: number, detalle: string): Tarjeta => ({ color, etiqueta, valor: fmtEntero(n), detalle });
+export const tarjetaNumero = (color: Tarjeta["color"], etiqueta: string, n: number, detalle?: string): Tarjeta => ({ color, etiqueta, valor: fmtEntero(n), detalle });
+export const fmtCantidad = fmtEntero;
 export const tarjetaPromedio = (etiqueta: string, n: number, detalle: string): Tarjeta => ({ color: "azul", etiqueta, valor: fmtPromedio(n), detalle });
 
 export function Tarjetas({ titulo, tarjetas, compacto }: { titulo?: string; tarjetas: Tarjeta[]; compacto?: boolean }) {
@@ -24,7 +31,17 @@ export function Tarjetas({ titulo, tarjetas, compacto }: { titulo?: string; tarj
           <div key={t.etiqueta} className={`dash-tile dash-tile--${t.color}`}>
             <div className="dash-tile-label">{t.etiqueta}</div>
             <div className="dash-tile-valor">{t.valor}</div>
-            <div className="dash-tile-detalle">{t.detalle}</div>
+            {t.desglose && (
+              <dl className="dash-tile-desglose">
+                {t.desglose.map((d) => (
+                  <div key={d.etiqueta}>
+                    <dt>{d.etiqueta}</dt>
+                    <dd>{d.valor}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            {t.detalle && <div className="dash-tile-detalle">{t.detalle}</div>}
           </div>
         ))}
       </div>

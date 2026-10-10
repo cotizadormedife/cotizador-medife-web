@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { etiquetaMes, hoyAR, limitesMesAR, mesAR, mesesQueCorresponden } from "../fechas";
 import { puedeVerDashboard } from "./acceso";
-import { actividadPorMes, resumenGeneral, resumirPorEmpresa, resumirPorPersona, tuvoActividad, type CotizacionDash, type PersonaDash } from "./estadisticas";
+import { actividadPorMes, cotizacionesGenerales, resumenGeneral, resumirPorEmpresa, resumirPorPersona, tuvoActividad, type CotizacionDash, type PersonaDash } from "./estadisticas";
 
 const persona = (id: string, empresa: string, extra: Partial<PersonaDash> = {}): PersonaDash => ({
   id,
@@ -171,5 +171,19 @@ describe("resumenGeneral (totales de toda la aplicación)", () => {
   });
   it("un grupo con un solo vendedor activo cuenta como activo", () => {
     expect(resumenGeneral(empresas, [persona("b1", "B")])).toEqual({ gruposActivos: 1, vendedoresActivos: 1 });
+  });
+});
+
+describe("cotizacionesGenerales (totales, este año, este mes, este día)", () => {
+  const ahora = new Date("2026-10-10T15:00:00+00:00"); // 10/10/2026 12:00 en Argentina
+  const cots = [
+    cot("a", "2026-10-10T03:00:00+00:00"), // 10/10 00:00 AR: hoy
+    cot("a", "2026-10-10T02:59:00+00:00"), // 9/10 23:59 AR: este mes, no hoy
+    cot("a", "2026-10-01T02:59:00+00:00"), // 30/09 23:59 AR: este año, no este mes
+    cot("a", "2026-01-05T15:00:00+00:00"),
+    cot("a", "2025-12-31T15:00:00+00:00"), // año anterior: no cuenta
+  ];
+  it("separa este año, este mes y este día en hora de Argentina; los totales vienen aparte", () => {
+    expect(cotizacionesGenerales(13033, cots, ahora)).toEqual({ totales: 13033, esteAnio: 4, esteMes: 2, hoy: 1 });
   });
 });

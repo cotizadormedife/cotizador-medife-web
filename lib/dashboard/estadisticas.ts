@@ -1,4 +1,4 @@
-import { limitesMesAR, mesAR, type ClaveMes } from "../fechas";
+import { diaAR, limitesMesAR, mesAR, type ClaveMes } from "../fechas";
 
 // RF-106: cálculo del Dashboard estadístico. Funciones puras (sin acceso a la
 // base) para poder probarlas con datos armados a mano.
@@ -174,4 +174,28 @@ export function resumenGeneral(
   const activos = personas.filter(esVendedorActivo);
   const grupos = new Set(activos.map((p) => p.empresa_id).filter((id): id is string => !!id && ids.has(id)));
   return { gruposActivos: grupos.size, vendedoresActivos: activos.length };
+}
+
+// Cotizaciones de toda la aplicación: total histórico y las de este año, este mes
+// y hoy (hora de Argentina). `cotizaciones` debe cubrir al menos desde el 1/1 del año actual.
+export function cotizacionesGenerales(
+  totalHistorico: number,
+  cotizaciones: CotizacionDash[],
+  ahora: Date = new Date()
+): { totales: number; esteAnio: number; esteMes: number; hoy: number } {
+  const dia = diaAR(ahora);
+  const mes = dia.slice(0, 7);
+  const anio = dia.slice(0, 4);
+  let esteAnio = 0;
+  let esteMes = 0;
+  let hoy = 0;
+  for (const c of cotizaciones) {
+    const d = diaAR(c.created_at);
+    if (d.slice(0, 4) !== anio) continue;
+    esteAnio++;
+    if (d.slice(0, 7) !== mes) continue;
+    esteMes++;
+    if (d === dia) hoy++;
+  }
+  return { totales: totalHistorico, esteAnio, esteMes, hoy };
 }

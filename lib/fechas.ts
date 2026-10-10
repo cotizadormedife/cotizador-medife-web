@@ -65,6 +65,11 @@ export function mesAR(valor: string | Date): ClaveMes {
   return new Date(t).toISOString().slice(0, 7);
 }
 
+// Día ("AAAA-MM-DD") en Argentina al que pertenece un instante guardado en UTC.
+export function diaAR(valor: string | Date): string {
+  return new Date(new Date(valor).getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
 // Año y mes de hoy en Argentina.
 export function hoyAR(ahora: Date = new Date()): { anio: number; mes: number } {
   const [a, m] = mesAR(ahora).split("-").map(Number);

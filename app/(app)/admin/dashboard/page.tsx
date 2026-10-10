@@ -3,10 +3,10 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { claveMes, hoyAR, mesesQueCorresponden } from "@/lib/fechas";
 import { DASHBOARD_RELEASE_APROBADO, puedeVerDashboard } from "@/lib/dashboard/acceso";
-import { cargarCotizacionesRango, cargarEmpresasYPersonas } from "@/lib/dashboard/cargar";
-import { actividadPorMes, etiquetaConGrupo, nombrePersona, resumenGeneral, resumirPorEmpresa, resumirPorPersona, tuvoActividad } from "@/lib/dashboard/estadisticas";
+import { cargarCotizacionesRango, cargarEmpresasYPersonas, cargarTotalCotizaciones } from "@/lib/dashboard/cargar";
+import { actividadPorMes, cotizacionesGenerales, etiquetaConGrupo, nombrePersona, resumenGeneral, resumirPorEmpresa, resumirPorPersona, tuvoActividad } from "@/lib/dashboard/estadisticas";
 import DashboardFilters from "./DashboardFilters";
-import { Comparativa, Tarjetas, tarjetaNumero, tarjetaPromedio } from "./Resultados";
+import { Comparativa, fmtCantidad, Tarjetas, tarjetaNumero, tarjetaPromedio } from "./Resultados";
 
 type Param = string | string[] | undefined;
 type SearchParams = {
@@ -45,7 +45,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const claves = mesesElegidos.map((m) => claveMes(anio, m));
   const anios = Array.from({ length: Math.max(hoy.anio, PRIMER_ANIO_CON_DATOS) - PRIMER_ANIO_CON_DATOS + 1 }, (_, i) => PRIMER_ANIO_CON_DATOS + i);
 
-  const [{ empresas, personas }, cotizaciones] = await Promise.all([cargarEmpresasYPersonas(), cargarCotizacionesRango(claveMes(PRIMER_ANIO_CON_DATOS, 1), claveMes(hoy.anio, hoy.mes))]);
+  const [{ empresas, personas }, cotizaciones, totalHistorico] = await Promise.all([cargarEmpresasYPersonas(), cargarCotizacionesRango(claveMes(PRIMER_ANIO_CON_DATOS, 1), claveMes(hoy.anio, hoy.mes)), cargarTotalCotizaciones()]);
   // Las estadísticas filtran por los meses elegidos; el año completo sirve para saber
   // quién tuvo actividad en cada mes (los filtros solo ofrecen a quien cotizó en el período).
   const actividad = actividadPorMes(cotizaciones, personas);
@@ -81,7 +81,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   // Pestaña Empresas/Grupos: totales de toda la aplicación (siempre visibles, no dependen de la selección).
   const general = resumenGeneral(empresas, personas);
-  const cotizacionesGenerales = hayFiltro ? resumirPorEmpresa({ empresas, personas, cotizaciones, meses: claves }).totalCotizaciones : null;
+  const generales = cotizacionesGenerales(totalHistorico, cotizaciones);
 
   return (
     <div>
@@ -110,12 +110,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           tarjetas={[
             tarjetaNumero("naranja", "Brokers / Grupos activos", general.gruposActivos, "Con al menos un vendedor activo"),
             tarjetaNumero("naranja", "Vendedores activos", general.vendedoresActivos, "Usuarios aprobados y habilitados hoy"),
-            ...(cotizacionesGenerales === null
-              ? []
-              : [
-                  tarjetaNumero("carbon", "Cotizaciones (todos los grupos)", cotizacionesGenerales, "En el período elegido"),
-                  tarjetaPromedio("Promedio por vendedor activo", general.vendedoresActivos > 0 ? cotizacionesGenerales / general.vendedoresActivos : 0, "Cotizaciones ÷ vendedores activos"),
-                ]),
+            {
+              color: "carbon",
+              etiqueta: "Cotizaciones totales (todos los grupos)",
+              valor: fmtCantidad(generales.totales),
+              desglose: [
+                { etiqueta: "Este año", valor: fmtCantidad(generales.esteAnio) },
+                { etiqueta: "Este mes", valor: fmtCantidad(generales.esteMes) },
+                { etiqueta: "Este día", valor: fmtCantidad(generales.hoy) },
+              ],
+            },
+            tarjetaPromedio("Promedio por vendedor activo", general.vendedoresActivos > 0 ? generales.totales / general.vendedoresActivos : 0, "Cotizaciones totales ÷ vendedores activos"),
           ]}
         />
       )}

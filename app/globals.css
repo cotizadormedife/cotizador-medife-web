@@ -277,6 +277,21 @@ a {
 .dash-tiles--general .dash-tile-valor {
   font-size: 38px;
 }
+.dash-tile-desglose {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+}
+.dash-tile-desglose dt {
+  font-size: 11px;
+}
+.dash-tile-desglose dd {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
 .dash-tile--naranja {
   background: #e35205;
 }
