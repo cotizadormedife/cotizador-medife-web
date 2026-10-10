@@ -2,11 +2,24 @@ import type { FilaGrafico } from "./estadisticas";
 
 // RF-107: cálculos del gráfico comparativo del Dashboard (puros, para probarlos).
 
-// Paleta categórica validada (adyacentes separables incluso con daltonismo): como
-// máximo 8 series — con más no se generan colores nuevos, se muestran las 8 con
-// más cotizaciones y se avisa.
-export const PALETA_SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"] as const;
-export const MAX_SERIES = PALETA_SERIES.length;
+// Paleta categórica validada (adyacentes separables incluso con daltonismo): 9
+// colores + una décima serie con otra codificación (barra blanca con contorno
+// negro) — así se comparan hasta 10 sin inventar colores parecidos entre sí. El
+// amarillo (#ffe500) está validado contra el rojo vecino (ΔE 37) y contra el
+// ámbar de la leyenda (ΔE 17). Con más de 10 se muestran las 10 con más
+// cotizaciones y se avisa.
+export const PALETA_SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948", "#ffe500"] as const;
+export const MAX_SERIES = PALETA_SERIES.length + 1;
+
+const CONTORNO = "#111111";
+
+// Relleno de cada serie: color sólido; la última, blanca con contorno negro
+// (box-shadow inset: no cambia el tamaño de la barra ni engorda las de valor 0).
+export function estiloSerie(indice: number): { background: string; boxShadow?: string } {
+  return indice < PALETA_SERIES.length
+    ? { background: PALETA_SERIES[indice] }
+    : { background: "#ffffff", boxShadow: `inset 0 0 0 2px ${CONTORNO}` };
+}
 
 export type SeriesElegidas = { series: FilaGrafico[]; totalElegidas: number; recortado: boolean };
 

@@ -1,24 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { anchoBarra, elegirSeries, escalaY, MAX_SERIES, mostrarValores, PALETA_SERIES } from "./grafico";
+import { anchoBarra, elegirSeries, escalaY, estiloSerie, MAX_SERIES, mostrarValores, PALETA_SERIES } from "./grafico";
 import type { FilaGrafico } from "./estadisticas";
 
 const fila = (n: number): FilaGrafico => ({ clave: `k${n}`, etiqueta: `Persona ${n}`, porMes: {}, total: 100 - n });
 
-describe("elegirSeries (máximo 8, sin inventar colores)", () => {
+describe("elegirSeries (máximo 10: 9 colores + una barra blanca con contorno)", () => {
   it("con 2 personas elegidas se muestran las 2, cada una por separado", () => {
     const r = elegirSeries([fila(1), fila(2)]);
     expect(r.series).toHaveLength(2);
     expect(r.recortado).toBe(false);
   });
-  it("con más de 8 se muestran las 8 con más cotizaciones y se avisa", () => {
+  it("con más de 10 se muestran las 10 con más cotizaciones y se avisa", () => {
     const r = elegirSeries(Array.from({ length: 66 }, (_, i) => fila(i)));
     expect(r.series).toHaveLength(MAX_SERIES);
     expect(r.series[0].clave).toBe("k0"); // la de mayor total primero
     expect(r.totalElegidas).toBe(66);
     expect(r.recortado).toBe(true);
   });
-  it("la paleta tiene un color por serie y sin repetirse", () => {
-    expect(new Set(PALETA_SERIES).size).toBe(MAX_SERIES);
+  it("el máximo es 10 y la paleta tiene 9 colores distintos (la décima serie usa contorno)", () => {
+    expect(MAX_SERIES).toBe(10);
+    expect(PALETA_SERIES).toHaveLength(9);
+    expect(new Set(PALETA_SERIES).size).toBe(9);
+    expect(PALETA_SERIES).toContain("#ffe500"); // el amarillo pedido
+  });
+  it("las 9 primeras series van en color sólido y la décima blanca con contorno negro", () => {
+    expect(estiloSerie(0)).toEqual({ background: "#2a78d6" });
+    expect(estiloSerie(8)).toEqual({ background: "#ffe500" });
+    expect(estiloSerie(9)).toEqual({ background: "#ffffff", boxShadow: "inset 0 0 0 2px #111111" });
   });
 });
 
@@ -39,7 +47,7 @@ describe("anchoBarra / mostrarValores", () => {
   it("barras finas: máximo 24 px y más angostas con más series", () => {
     expect(anchoBarra(1)).toBe(24);
     expect(anchoBarra(2)).toBe(24);
-    expect(anchoBarra(8)).toBe(24); // 8 series todavía entran a 24 px
+    expect(anchoBarra(10)).toBe(24); // 10 series todavía entran a 24 px
     expect(anchoBarra(12)).toBe(21);
     expect(anchoBarra(100)).toBe(10); // piso: nunca más finas que 10 px
   });

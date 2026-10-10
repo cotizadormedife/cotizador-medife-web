@@ -1,6 +1,6 @@
 import { etiquetaMes } from "@/lib/fechas";
 import type { Estadistica } from "@/lib/dashboard/estadisticas";
-import { anchoBarra, elegirSeries, escalaY, mostrarValores, PALETA_SERIES } from "@/lib/dashboard/grafico";
+import { anchoBarra, elegirSeries, escalaY, estiloSerie, mostrarValores } from "@/lib/dashboard/grafico";
 
 // RF-106/RF-107: presentación de resultados del Dashboard — server components,
 // sin librería de gráficos. El gráfico es siempre comparativo: una barra por
@@ -73,7 +73,7 @@ export function Comparativa({ e, singular, plural }: { e: Estadistica; singular:
           <ul className="dash-leyenda" aria-label="Referencias">
             {series.map((s, i) => (
               <li key={s.clave}>
-                <span className="dash-leyenda-color" style={{ background: PALETA_SERIES[i] }} aria-hidden="true" />
+                <span className="dash-leyenda-color" style={estiloSerie(i)} aria-hidden="true" />
                 <span className="dash-leyenda-nombre">{s.etiqueta}</span>
                 <span className="dash-leyenda-total">{fmtEntero(s.total)} en el período</span>
               </li>
@@ -107,7 +107,7 @@ export function Comparativa({ e, singular, plural }: { e: Estadistica; singular:
                             <div
                               key={s.clave}
                               className="dash-comp-barra"
-                              style={{ width: ancho, height: Math.max(v > 0 ? 3 : 1, Math.round((v / tope) * ALTO)), background: PALETA_SERIES[i] }}
+                              style={{ width: ancho, height: Math.max(v > 0 ? 3 : 1, Math.round((v / tope) * ALTO)), ...estiloSerie(i) }}
                               title={`${s.etiqueta} · ${etiquetaMes(m)}: ${fmtEntero(v)} cotizaciones`}
                             >
                               {conValores && <span className="dash-comp-valor">{fmtEntero(v)}</span>}
