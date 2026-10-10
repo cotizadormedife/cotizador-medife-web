@@ -112,7 +112,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             tarjetaNumero("naranja", "Vendedores activos", general.vendedoresActivos, "Usuarios aprobados y habilitados hoy"),
             {
               color: "carbon",
-              etiqueta: "Cotizaciones totales (todos los grupos)",
+              etiqueta: "Cotizaciones",
               valor: fmtCantidad(generales.totales),
               desglose: [
                 { etiqueta: "Este año", valor: fmtCantidad(generales.esteAnio) },
