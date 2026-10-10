@@ -105,16 +105,26 @@ export function resumirPorEmpresa(args: {
   return armar(meses, filas, vendedores, autores.size);
 }
 
+// Nombre de la persona con su grupo/empresa entre paréntesis (lo ve el super_admin,
+// que compara personas de distintos grupos). Sin grupo conocido, solo el nombre.
+export function etiquetaConGrupo(p: Pick<PersonaDash, "nombre" | "apellido" | "email">, grupo?: string | null): string {
+  return grupo ? `${nombrePersona(p)} (${grupo})` : nombrePersona(p);
+}
+
 // Pestaña "Personas": una fila por persona elegida. El promedio es contra la
 // cantidad de personas elegidas (el usuario las eligió a propósito).
 export function resumirPorPersona(args: {
   personas: PersonaDash[]; // las elegidas
   cotizaciones: CotizacionDash[];
   meses: ClaveMes[];
+  empresas?: { id: string; nombre: string }[]; // si viene, cada etiqueta lleva el grupo entre paréntesis
 }): Estadistica {
   const meses = ordenarMeses(args.meses);
   const mesesSet = new Set(meses);
-  const filas = new Map(args.personas.map((p) => [p.id, filaVacia(p.id, nombrePersona(p), meses)]));
+  const grupos = new Map((args.empresas ?? []).map((e) => [e.id, e.nombre]));
+  const filas = new Map(
+    args.personas.map((p) => [p.id, filaVacia(p.id, etiquetaConGrupo(p, p.empresa_id ? grupos.get(p.empresa_id) : null), meses)])
+  );
 
   const autores = new Set<string>();
   for (const c of args.cotizaciones) {

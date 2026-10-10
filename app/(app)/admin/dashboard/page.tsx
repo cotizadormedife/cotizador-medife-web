@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth/session";
 import { claveMes, hoyAR, mesesQueCorresponden } from "@/lib/fechas";
 import { DASHBOARD_RELEASE_APROBADO, puedeVerDashboard } from "@/lib/dashboard/acceso";
 import { cargarCotizaciones, cargarEmpresasYPersonas } from "@/lib/dashboard/cargar";
-import { nombrePersona, resumirPorEmpresa, resumirPorPersona } from "@/lib/dashboard/estadisticas";
+import { etiquetaConGrupo, nombrePersona, resumirPorEmpresa, resumirPorPersona } from "@/lib/dashboard/estadisticas";
 import DashboardFilters from "./DashboardFilters";
 import { Comparativa, Tarjetas } from "./Resultados";
 
@@ -58,6 +58,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   }
 
   // Personas que se pueden elegir: aprobadas, de los grupos permitidos.
+  const nombreEmpresa = new Map(empresas.map((e) => [e.id, e.nombre]));
   const alcance = new Set(empresasElegidasIds);
   const candidatas = personas
     .filter((p) => p.status === "approved" && p.empresa_id && alcance.has(p.empresa_id))
@@ -67,7 +68,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const estadistica =
     tab === "empresas"
       ? resumirPorEmpresa({ empresas: empresas.filter((e) => empresasElegidasIds.includes(e.id)), personas, cotizaciones, meses: claves })
-      : resumirPorPersona({ personas: personasElegidas, cotizaciones, meses: claves });
+      : resumirPorPersona({ personas: personasElegidas, cotizaciones, meses: claves, empresas: esSuper ? empresas : undefined });
 
   const hayFiltro = claves.length > 0;
 
@@ -96,7 +97,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         tab={tab}
         esSuper={esSuper}
         empresas={tab === "empresas" || esSuper ? empresas : []}
-        personas={tab === "personas" ? candidatas.map((p) => ({ id: p.id, nombre: nombrePersona(p), empresaId: p.empresa_id, deshabilitada: !!p.disabled_at })) : []}
+        personas={tab === "personas" ? candidatas.map((p) => ({ id: p.id, nombre: etiquetaConGrupo(p, esSuper ? nombreEmpresa.get(p.empresa_id ?? "") : null), empresaId: p.empresa_id, deshabilitada: !!p.disabled_at })) : []}
         hoy={hoy}
         anios={anios}
         inicial={{ anio, meses: mesesElegidos, empresasSel: empresasElegidasIds, personasSel: personasElegidas.map((p) => p.id) }}

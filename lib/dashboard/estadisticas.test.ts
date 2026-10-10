@@ -117,6 +117,13 @@ describe("resumirPorPersona", () => {
     expect(r.filas[0].porMes).toEqual({ "2026-09": 1, "2026-10": 1 });
   });
 
+  it("para el super_admin la etiqueta lleva el grupo entre paréntesis", () => {
+    const sin = resumirPorPersona({ personas, cotizaciones, meses: ["2026-09"] });
+    expect(sin.filas[0].etiqueta).not.toContain("(");
+    const con = resumirPorPersona({ personas, cotizaciones, meses: ["2026-09"], empresas: [{ id: "A", nombre: "Broker_On Broker" }] });
+    expect(con.filas[0].etiqueta).toMatch(/ \(Broker_On Broker\)$/);
+  });
+
   it("si solo se elige a una persona, no se mezclan cotizaciones de otras", () => {
     const r = resumirPorPersona({ personas: [personas[1]], cotizaciones, meses: ["2026-09"] });
     expect(r.totalCotizaciones).toBe(1);
