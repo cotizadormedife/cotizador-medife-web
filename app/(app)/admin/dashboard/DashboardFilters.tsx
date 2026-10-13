@@ -88,6 +88,7 @@ export default function DashboardFilters({
   };
 
   const sinMeses = meses.size === 0;
+  const resumenPeriodo = todoElAnio ? `todo ${anio}` : sinMeses ? "ningún mes elegido" : meses.size === 1 ? `${MESES[[...meses][0] - 1]} ${anio}` : `${meses.size} meses de ${anio}`;
   const sinEntidades = tab === "empresas" ? empresasElegidas.length === 0 : personasElegidas.length === 0;
 
   return (
@@ -101,8 +102,11 @@ export default function DashboardFilters({
       {eligeEmpresas && (todasEmpresas ? <input type="hidden" name="todasEmpresas" value="1" /> : empresasElegidas.map((e) => <input key={e.id} type="hidden" name="empresa" value={e.id} />))}
       {tab === "personas" && (todasPersonas ? <input type="hidden" name="todasPersonas" value="1" /> : personasElegidas.map((p) => <input key={p.id} type="hidden" name="persona" value={p.id} />))}
 
-      <div className="dash-filtros-grupo">
-        <p className="dash-filtros-titulo">Período (siempre meses completos)</p>
+      <details className="dash-seccion" open={abiertoPorDefecto}>
+        <summary>
+          Período <span className="dash-seccion-detalle">({resumenPeriodo})</span>
+        </summary>
+        <p style={{ fontSize: 12, color: "var(--text-neutral)", margin: "0 0 8px" }}>Siempre meses completos.</p>
         <div className="dash-chips" style={{ marginBottom: 10 }}>
           <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
             Año
@@ -136,7 +140,7 @@ export default function DashboardFilters({
             );
           })}
         </div>
-      </div>
+      </details>
 
       {eligeEmpresas && (
         <details className="dash-seccion" open={abiertoPorDefecto}>
