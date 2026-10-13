@@ -11,7 +11,7 @@ const fmtEntero = (n: number) => n.toLocaleString("es-AR");
 const fmtPromedio = (n: number) => n.toLocaleString("es-AR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 export type Tarjeta = {
-  color: "naranja" | "carbon" | "azul";
+  color: "naranja" | "gris" | "carbon" | "azul";
   etiqueta: string;
   valor: string;
   detalle?: string;
@@ -20,7 +20,14 @@ export type Tarjeta = {
 
 export const tarjetaNumero = (color: Tarjeta["color"], etiqueta: string, n: number, detalle?: string): Tarjeta => ({ color, etiqueta, valor: fmtEntero(n), detalle });
 export const fmtCantidad = fmtEntero;
-export const tarjetaPromedio = (etiqueta: string, n: number, detalle: string): Tarjeta => ({ color: "azul", etiqueta, valor: fmtPromedio(n), detalle });
+export const tarjetaPromedio = (etiqueta: string, n: number, detalle: string, desglose?: Tarjeta["desglose"]): Tarjeta => ({
+  color: "azul",
+  etiqueta,
+  valor: fmtPromedio(n),
+  detalle,
+  desglose,
+});
+export const fmtDecimal = fmtPromedio;
 
 export function Tarjetas({ titulo, tarjetas, compacto }: { titulo?: string; tarjetas: Tarjeta[]; compacto?: boolean }) {
   return (

@@ -295,6 +295,10 @@ a {
 .dash-tile--naranja {
   background: #e35205;
 }
+.dash-tile--gris {
+  background: #dfe2e7;
+  color: #1c1c1e;
+}
 .dash-tile--carbon {
   background: #2b2b2e;
 }

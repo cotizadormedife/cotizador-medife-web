@@ -6,7 +6,7 @@ import { DASHBOARD_RELEASE_APROBADO, puedeVerDashboard } from "@/lib/dashboard/a
 import { cargarCotizacionesRango, cargarEmpresasYPersonas, cargarTotalCotizaciones } from "@/lib/dashboard/cargar";
 import { actividadPorMes, cotizacionesGenerales, etiquetaConGrupo, nombrePersona, resumenGeneral, resumirPorEmpresa, resumirPorPersona, tuvoActividad } from "@/lib/dashboard/estadisticas";
 import DashboardFilters from "./DashboardFilters";
-import { Comparativa, fmtCantidad, Tarjetas, tarjetaNumero, tarjetaPromedio } from "./Resultados";
+import { Comparativa, fmtCantidad, fmtDecimal, Tarjetas, tarjetaNumero, tarjetaPromedio } from "./Resultados";
 
 type Param = string | string[] | undefined;
 type SearchParams = {
@@ -82,6 +82,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // Pestaña Empresas/Grupos: totales de toda la aplicación (siempre visibles, no dependen de la selección).
   const general = resumenGeneral(empresas, personas);
   const generales = cotizacionesGenerales(totalHistorico, cotizaciones);
+  const porVendedorActivo = (n: number) => (general.vendedoresActivos > 0 ? n / general.vendedoresActivos : 0);
 
   return (
     <div>
@@ -109,7 +110,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           compacto
           tarjetas={[
             tarjetaNumero("naranja", "Brokers / Grupos activos", general.gruposActivos, "Con al menos un vendedor activo"),
-            tarjetaNumero("naranja", "Vendedores activos", general.vendedoresActivos, "Usuarios aprobados y habilitados hoy"),
+            tarjetaNumero("gris", "Vendedores activos", general.vendedoresActivos, "Usuarios aprobados y habilitados hoy"),
             {
               color: "carbon",
               etiqueta: "Cotizaciones",
@@ -120,7 +121,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 { etiqueta: "Este día", valor: fmtCantidad(generales.hoy) },
               ],
             },
-            tarjetaPromedio("Promedio por vendedor activo", general.vendedoresActivos > 0 ? generales.totales / general.vendedoresActivos : 0, "Cotizaciones totales ÷ vendedores activos"),
+            tarjetaPromedio(
+              "Promedio por vendedor activo",
+              porVendedorActivo(generales.totales),
+              "Cotizaciones ÷ vendedores activos",
+              [
+                { etiqueta: "Este mes", valor: fmtDecimal(porVendedorActivo(generales.esteMes)) },
+                { etiqueta: "Este día", valor: fmtDecimal(porVendedorActivo(generales.hoy)) },
+              ]
+            ),
           ]}
         />
       )}
@@ -150,7 +159,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               titulo="Selección"
               tarjetas={[
                 tarjetaNumero("naranja", "Grupos seleccionados", estadistica.filas.length, `De ${general.gruposActivos} grupos activos en total`),
-                tarjetaNumero("naranja", "Cantidad de vendedores seleccionados", estadistica.totalVendedores, `${estadistica.vendedoresQueCotizaron} cotizaron en el período · vendedores = usuarios aprobados y habilitados de los grupos elegidos`),
+                tarjetaNumero("gris", "Cantidad de vendedores seleccionados", estadistica.totalVendedores, `${estadistica.vendedoresQueCotizaron} cotizaron en el período · vendedores = usuarios aprobados y habilitados de los grupos elegidos`),
                 tarjetaNumero("carbon", "Cantidad de cotizaciones", estadistica.totalCotizaciones, "De los grupos elegidos, en el período"),
                 tarjetaPromedio("Promedio de cotizaciones por vendedor", estadistica.promedio, "Cotizaciones ÷ vendedores seleccionados"),
               ]}
