@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { etiquetaMes, hoyAR, limitesMesAR, mesAR, mesesQueCorresponden } from "../fechas";
 import { puedeVerDashboard } from "./acceso";
-import { actividadPorMes, cotizacionesGenerales, resumenGeneral, resumirPorEmpresa, resumirPorPersona, tuvoActividad, type CotizacionDash, type PersonaDash } from "./estadisticas";
+import { actividadPorMes, cotizacionesGenerales, resumenGeneral, vendedoresNuevos, resumirPorEmpresa, resumirPorPersona, tuvoActividad, type CotizacionDash, type PersonaDash } from "./estadisticas";
 
 const persona = (id: string, empresa: string, extra: Partial<PersonaDash> = {}): PersonaDash => ({
   id,
@@ -185,5 +185,19 @@ describe("cotizacionesGenerales (totales, este año, este mes, este día)", () =
   ];
   it("separa este año, este mes y este día en hora de Argentina; los totales vienen aparte", () => {
     expect(cotizacionesGenerales(13033, cots, ahora)).toEqual({ totales: 13033, esteAnio: 4, esteMes: 2, hoy: 1 });
+  });
+});
+
+describe("vendedoresNuevos (altas de este mes y de hoy)", () => {
+  const ahora = new Date("2026-10-13T15:00:00+00:00"); // 13/10/2026 12:00 en Argentina
+  it("cuenta solo vendedores activos dados de alta este mes y hoy, en hora de Argentina", () => {
+    const personas = [
+      persona("a", "A", { created_at: "2026-10-13T03:00:00+00:00" }), // 13/10 00:00 AR: hoy
+      persona("b", "A", { created_at: "2026-10-13T02:59:00+00:00" }), // 12/10 23:59 AR: este mes, no hoy
+      persona("c", "A", { created_at: "2026-10-01T02:59:00+00:00" }), // 30/09 AR: mes anterior
+      persona("d", "A", { created_at: "2026-10-05T12:00:00+00:00", disabled_at: "2026-10-06T12:00:00+00:00" }), // deshabilitado
+      persona("e", "A", { created_at: "2026-10-05T12:00:00+00:00", status: "pending_approval" }), // sin aprobar
+    ];
+    expect(vendedoresNuevos(personas, ahora)).toEqual({ esteMes: 2, hoy: 1 });
   });
 });

@@ -199,3 +199,22 @@ export function cotizacionesGenerales(
   }
   return { totales: totalHistorico, esteAnio, esteMes, hoy };
 }
+
+// Vendedores activos dados de alta este mes y hoy (fecha de alta del usuario, hora de Argentina).
+export function vendedoresNuevos(
+  personas: Pick<PersonaDash, "status" | "disabled_at" | "created_at">[],
+  ahora: Date = new Date()
+): { esteMes: number; hoy: number } {
+  const dia = diaAR(ahora);
+  const mes = dia.slice(0, 7);
+  let esteMes = 0;
+  let hoy = 0;
+  for (const p of personas) {
+    if (!esVendedorActivo(p)) continue;
+    const d = diaAR(p.created_at);
+    if (d.slice(0, 7) !== mes) continue;
+    esteMes++;
+    if (d === dia) hoy++;
+  }
+  return { esteMes, hoy };
+}

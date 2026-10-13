@@ -93,7 +93,7 @@ Este es el proceso que se siguió consistentemente durante toda la sesión, no e
 5. Push a los dos remotos, deploy manual al entorno viejo, confirmar que el nuevo se desplegó solo.
 6. **Actualizar documentación** (ver abajo) — esto es una directiva explícita de Diego, no opcional: Documento Funcional y Documento de Versionado en cada cambio funcional; Documento DER en cada cambio de estructura de base de datos, por menor que sea.
 
-El numerado de RF sigue una única secuencia global — el siguiente disponible después de este documento es **RF-116**. Antes de asignar uno nuevo, confirmar el último real con:
+El numerado de RF sigue una única secuencia global — el siguiente disponible después de este documento es **RF-117**. Antes de asignar uno nuevo, confirmar el último real con:
 ```bash
 git log --oneline | grep -oE "RF-[0-9]+" | sort -t- -k2 -n -u | tail -5
 ```
@@ -135,7 +135,7 @@ Reglas de negocio no obvias agregadas después del diseño inicial (ver el chang
 - **Documento_Tecnico** — infraestructura actual (los dos entornos de la tabla de arriba), pendientes de infra.
 - **Documento_DER_Modelo_de_Datos** — diagrama + diccionario de datos de las 21+ tablas.
 
-**Directiva explícita de Diego, memorizada para toda sesión de Claude en este proyecto:** actualizar Funcional/Versionado en cada cambio funcional, y el DER en cada cambio de estructura de base de datos por menor que sea. Un audit de los 4 documentos (25/09/2026) encontró y corrigió un backfill grande: faltaban RF-49, 62, 67, 68, 72, 80, 81, 83 a 90 y 92 a 97 en Funcional, y 6 filas de versión (v1.58 a v1.63) en Versionado; también se agregó a Documento Técnico la descripción del segundo entorno (viejo) que faltaba. Documento_DER se confirmó al día, sin gaps. **Esto quedó al día hasta RF-115/v1.81 (13/10/2026)** — Funcional y Versionado incluyen RF-98 a RF-115 (RF-100/101/102 desarrollados por Rodrigo Mierez) y el resumen de la sección 1 del Versionado está recalculado. Antes de asumir que sigue así, pedirle a Claude que chequee de nuevo si pasó tiempo (todo cambio posterior puede no estar reflejado si no se pidió explícitamente actualizarlo).
+**Directiva explícita de Diego, memorizada para toda sesión de Claude en este proyecto:** actualizar Funcional/Versionado en cada cambio funcional, y el DER en cada cambio de estructura de base de datos por menor que sea. Un audit de los 4 documentos (25/09/2026) encontró y corrigió un backfill grande: faltaban RF-49, 62, 67, 68, 72, 80, 81, 83 a 90 y 92 a 97 en Funcional, y 6 filas de versión (v1.58 a v1.63) en Versionado; también se agregó a Documento Técnico la descripción del segundo entorno (viejo) que faltaba. Documento_DER se confirmó al día, sin gaps. **Esto quedó al día hasta RF-116/v1.82 (13/10/2026)** — Funcional y Versionado incluyen RF-98 a RF-116 (RF-100/101/102 desarrollados por Rodrigo Mierez) y el resumen de la sección 1 del Versionado está recalculado. Antes de asumir que sigue así, pedirle a Claude que chequee de nuevo si pasó tiempo (todo cambio posterior puede no estar reflejado si no se pidió explícitamente actualizarlo).
 
 ## Pendientes conocidos (no resueltos al momento de escribir esto)
 
@@ -197,6 +197,7 @@ Desde RF-44 en adelante, un renglón por commit (fecha, qué cambió):
 - 2026-10-10 — **Dashboard: título de la tarjeta general** (`page.tsx`): la tarjeta de cotizaciones del bloque «Total de la aplicación» pasa a titularse solo «Cotizaciones» (antes «Cotizaciones totales (todos los grupos)») (RF-113)
 - 2026-10-13 — **Dashboard: color distinto y promedio del mes y del día** (`Resultados.tsx`, `globals.css`, `page.tsx`): la tarjeta de vendedores (activos / seleccionados) pasa de naranja a gris claro con texto oscuro, para no confundirla con la de grupos; en «Total de la aplicación», la tarjeta «Promedio por vendedor activo» suma, más chico dentro de la misma tarjeta, el promedio del mes en curso y del día en curso (cotizaciones del mes / del día ÷ vendedores activos) (RF-114)
 - 2026-10-13 — **Dashboard: cifras del desglose más grandes** (`globals.css`, `page.tsx`): se quita la leyenda «Cotizaciones ÷ vendedores activos» de la tarjeta de promedio del total general y se agrandan las cifras de Este año / Este mes / Este día (y los promedios del mes y del día) dentro de las tarjetas (RF-115)
+- 2026-10-13 — **Dashboard: vendedores nuevos en la tarjeta de vendedores activos** (`vendedoresNuevos` en `lib/dashboard/estadisticas.ts`, `page.tsx`): la tarjeta «Vendedores activos» del total general suma, más chico, «Nuevos este mes» y «Nuevos este día» = vendedores activos (aprobados y habilitados) cuya fecha de alta cae en el mes / el día en curso (hora de Argentina) (RF-116)
 
 ## Convenciones de esta sesión (para mantener consistencia)
 

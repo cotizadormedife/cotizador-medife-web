@@ -18,7 +18,13 @@ export type Tarjeta = {
   desglose?: { etiqueta: string; valor: string }[]; // cifras chicas dentro de la misma tarjeta
 };
 
-export const tarjetaNumero = (color: Tarjeta["color"], etiqueta: string, n: number, detalle?: string): Tarjeta => ({ color, etiqueta, valor: fmtEntero(n), detalle });
+export const tarjetaNumero = (color: Tarjeta["color"], etiqueta: string, n: number, detalle?: string, desglose?: Tarjeta["desglose"]): Tarjeta => ({
+  color,
+  etiqueta,
+  valor: fmtEntero(n),
+  detalle,
+  desglose,
+});
 export const fmtCantidad = fmtEntero;
 export const tarjetaPromedio = (etiqueta: string, n: number, detalle?: string, desglose?: Tarjeta["desglose"]): Tarjeta => ({
   color: "azul",

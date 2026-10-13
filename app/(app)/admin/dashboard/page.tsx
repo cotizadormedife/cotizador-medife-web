@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth/session";
 import { claveMes, hoyAR, mesesQueCorresponden } from "@/lib/fechas";
 import { DASHBOARD_RELEASE_APROBADO, puedeVerDashboard } from "@/lib/dashboard/acceso";
 import { cargarCotizacionesRango, cargarEmpresasYPersonas, cargarTotalCotizaciones } from "@/lib/dashboard/cargar";
-import { actividadPorMes, cotizacionesGenerales, etiquetaConGrupo, nombrePersona, resumenGeneral, resumirPorEmpresa, resumirPorPersona, tuvoActividad } from "@/lib/dashboard/estadisticas";
+import { actividadPorMes, cotizacionesGenerales, etiquetaConGrupo, nombrePersona, resumenGeneral, resumirPorEmpresa, vendedoresNuevos, resumirPorPersona, tuvoActividad } from "@/lib/dashboard/estadisticas";
 import DashboardFilters from "./DashboardFilters";
 import { Comparativa, fmtCantidad, fmtDecimal, Tarjetas, tarjetaNumero, tarjetaPromedio } from "./Resultados";
 
@@ -82,6 +82,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // Pestaña Empresas/Grupos: totales de toda la aplicación (siempre visibles, no dependen de la selección).
   const general = resumenGeneral(empresas, personas);
   const generales = cotizacionesGenerales(totalHistorico, cotizaciones);
+  const nuevos = vendedoresNuevos(personas);
   const porVendedorActivo = (n: number) => (general.vendedoresActivos > 0 ? n / general.vendedoresActivos : 0);
 
   return (
@@ -110,7 +111,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           compacto
           tarjetas={[
             tarjetaNumero("naranja", "Brokers / Grupos activos", general.gruposActivos, "Con al menos un vendedor activo"),
-            tarjetaNumero("gris", "Vendedores activos", general.vendedoresActivos, "Usuarios aprobados y habilitados hoy"),
+            tarjetaNumero("gris", "Vendedores activos", general.vendedoresActivos, "Usuarios aprobados y habilitados hoy", [
+              { etiqueta: "Nuevos este mes", valor: fmtCantidad(nuevos.esteMes) },
+              { etiqueta: "Nuevos este día", valor: fmtCantidad(nuevos.hoy) },
+            ]),
             {
               color: "carbon",
               etiqueta: "Cotizaciones",
