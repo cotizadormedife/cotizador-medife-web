@@ -280,15 +280,15 @@ a {
 .dash-tile-desglose {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 16px;
+  gap: 6px 20px;
   margin: 0;
 }
 .dash-tile-desglose dt {
-  font-size: 11px;
+  font-size: 13px;
 }
 .dash-tile-desglose dd {
   margin: 0;
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }

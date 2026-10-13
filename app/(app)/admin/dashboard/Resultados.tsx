@@ -20,7 +20,7 @@ export type Tarjeta = {
 
 export const tarjetaNumero = (color: Tarjeta["color"], etiqueta: string, n: number, detalle?: string): Tarjeta => ({ color, etiqueta, valor: fmtEntero(n), detalle });
 export const fmtCantidad = fmtEntero;
-export const tarjetaPromedio = (etiqueta: string, n: number, detalle: string, desglose?: Tarjeta["desglose"]): Tarjeta => ({
+export const tarjetaPromedio = (etiqueta: string, n: number, detalle?: string, desglose?: Tarjeta["desglose"]): Tarjeta => ({
   color: "azul",
   etiqueta,
   valor: fmtPromedio(n),

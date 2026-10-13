@@ -124,7 +124,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             tarjetaPromedio(
               "Promedio por vendedor activo",
               porVendedorActivo(generales.totales),
-              "Cotizaciones ÷ vendedores activos",
+              undefined,
               [
                 { etiqueta: "Este mes", valor: fmtDecimal(porVendedorActivo(generales.esteMes)) },
                 { etiqueta: "Este día", valor: fmtDecimal(porVendedorActivo(generales.hoy)) },
