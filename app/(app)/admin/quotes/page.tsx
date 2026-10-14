@@ -1,6 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireRole } from "@/lib/auth/session";
-import { listEmpresas, isMedife } from "@/lib/empresas";
+import { listEmpresas } from "@/lib/empresas";
 import { fmtFechaHoraAR, inicioDiaAR, inicioDiaSiguienteAR } from "@/lib/fechas";
 import { summarizeMiembros } from "@/lib/pricing/summary";
 import { formatVigencia } from "@/lib/pricing/vigencia";
@@ -25,7 +25,9 @@ export default async function AdminQuotesPage({
   searchParams: Promise<SearchParams>;
 }) {
   const actor = await requireRole(["admin", "super_admin"]);
-  const scoped = actor.role === "admin" && !isMedife(actor.empresa_id);
+  // RF-119: dentro del Dashboard, un Admin ve solo las cotizaciones de su propio grupo
+  // (empresa), también si es de Medife; el Super Admin ve todo.
+  const scoped = actor.role === "admin";
 
   const { desde, hasta, usuario, empresa, numero, orden } = await searchParams;
   const supabase = createServiceClient();
@@ -50,7 +52,7 @@ export default async function AdminQuotesPage({
   if (usuario) query = query.eq("created_by", usuario);
   if (numero) query = query.eq("quote_number", Number(numero));
 
-  // RF-31: un Admin de una empresa distinta de Medife solo ve cotizaciones de su propia empresa.
+  // RF-31 / RF-119: un Admin solo ve cotizaciones de su propia empresa.
   if (scoped) {
     const ids = (usuarios ?? []).map((u) => u.id);
     query = query.in("created_by", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);

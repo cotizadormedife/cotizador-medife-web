@@ -1,8 +1,8 @@
-// RF-106: el Dashboard estadístico es para perfiles admin y super_admin, pero
-// hasta que Diego apruebe el release está habilitado SOLO para su usuario.
-// Para liberarlo a todos los admin/super_admin: DASHBOARD_RELEASE_APROBADO = true.
+// RF-106: el Dashboard estadístico es para perfiles admin y super_admin. Release
+// aprobado por Diego el 14/10/2026 (RF-119): lo ven todos los admin y super_admin.
+// Para volver a limitarlo a los usuarios de la lista: DASHBOARD_RELEASE_APROBADO = false.
 
-export const DASHBOARD_RELEASE_APROBADO = false;
+export const DASHBOARD_RELEASE_APROBADO = true;
 const EMAILS_HABILITADOS_HASTA_EL_RELEASE = ["diegoschwartzman@medife.com.ar"];
 
 export function puedeVerDashboard(perfil: { role: string; email: string }): boolean {

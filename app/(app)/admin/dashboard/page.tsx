@@ -141,7 +141,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         personas={tab === "personas" ? enAlcance.map((p) => ({ id: p.id, nombre: etiquetaConGrupo(p, esSuper ? nombreEmpresa.get(p.empresa_id ?? "") : null), empresaId: p.empresa_id, deshabilitada: !!p.disabled_at })) : []}
         actividad={{
           personas: tab === "personas" ? Object.fromEntries(enAlcance.map((p) => [p.id, actividad.personas[p.id] ?? []])) : {},
-          empresas: actividad.empresas,
+          empresas: esSuper ? actividad.empresas : {},
         }}
         hoy={hoy}
         anios={anios}
