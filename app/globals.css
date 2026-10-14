@@ -199,6 +199,10 @@ a {
   color: var(--brand-orange);
   border-bottom-color: var(--brand-orange);
 }
+.dash-clic {
+  cursor: pointer;
+  user-select: none;
+}
 .dash-filtros-grupo {
   margin-bottom: 18px;
 }

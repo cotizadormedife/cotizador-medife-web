@@ -55,7 +55,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             {(profile.role === "admin" || profile.role === "super_admin") && (
               <>
                 <NavLink href="/admin/users">Usuarios</NavLink>
-                <NavLink href="/admin/quotes">Todas las cotizaciones</NavLink>
+                {!puedeVerDashboard(profile) && <NavLink href="/admin/quotes">Todas las cotizaciones</NavLink>}
                 {puedeVerDashboard(profile) && <NavLink href="/admin/dashboard">Dashboard</NavLink>}
               </>
             )}

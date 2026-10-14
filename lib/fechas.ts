@@ -94,3 +94,18 @@ export function etiquetaMes(clave: ClaveMes): string {
   const [a, m] = clave.split("-").map(Number);
   return `${NOMBRES_MES[m - 1]} ${a}`;
 }
+
+// Primer y último día ("AAAA-MM-DD") de un mes, como los pide el filtro de fechas de
+// "Todas las cotizaciones" (RF-118).
+export function diasDelMes(clave: ClaveMes): { desde: string; hasta: string } {
+  const [a, m] = clave.split("-").map(Number);
+  const ultimo = new Date(Date.UTC(a, m, 0)).getUTCDate();
+  return { desde: `${clave}-01`, hasta: `${clave}-${pad2(ultimo)}` };
+}
+
+// Desde el primer día del primer mes hasta el último día del último mes.
+export function diasDeLosMeses(claves: ClaveMes[]): { desde: string; hasta: string } | null {
+  if (claves.length === 0) return null;
+  const orden = [...claves].sort();
+  return { desde: diasDelMes(orden[0]).desde, hasta: diasDelMes(orden[orden.length - 1]).hasta };
+}

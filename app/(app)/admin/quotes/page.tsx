@@ -7,6 +7,8 @@ import { formatVigencia } from "@/lib/pricing/vigencia";
 import QuoteDetailActions from "../../quotes/QuoteDetailModal";
 import DiscountsCell from "../../quotes/DiscountsCell";
 import FilterForm from "./FilterForm";
+import DashboardTabs from "../dashboard/DashboardTabs";
+import { puedeVerDashboard } from "@/lib/dashboard/acceso";
 
 type SearchParams = {
   desde?: string;
@@ -82,7 +84,14 @@ export default async function AdminQuotesPage({
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, margin: "0 0 16px" }}>Todas las cotizaciones</h1>
+      {puedeVerDashboard(actor) ? (
+        <>
+          <h1 style={{ fontSize: 22, margin: "0 0 16px" }}>Dashboard estadístico</h1>
+          <DashboardTabs actual="cotizaciones" esSuper={actor.role === "super_admin"} />
+        </>
+      ) : (
+        <h1 style={{ fontSize: 22, margin: "0 0 16px" }}>Todas las cotizaciones</h1>
+      )}
       <div className="card">
         <FilterForm
           desde={desde}

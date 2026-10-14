@@ -1,11 +1,11 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
-import { claveMes, hoyAR, mesesQueCorresponden } from "@/lib/fechas";
+import { claveMes, diasDeLosMeses, diasDelMes, hoyAR, mesesQueCorresponden } from "@/lib/fechas";
 import { DASHBOARD_RELEASE_APROBADO, puedeVerDashboard } from "@/lib/dashboard/acceso";
 import { cargarCotizacionesRango, cargarEmpresasYPersonas, cargarTotalCotizaciones } from "@/lib/dashboard/cargar";
 import { actividadPorMes, cotizacionesGenerales, etiquetaConGrupo, nombrePersona, resumenGeneral, resumirPorEmpresa, vendedoresNuevos, resumirPorPersona, tuvoActividad } from "@/lib/dashboard/estadisticas";
 import DashboardFilters from "./DashboardFilters";
+import DashboardTabs from "./DashboardTabs";
 import { Comparativa, fmtCantidad, fmtDecimal, Tarjetas, tarjetaNumero, tarjetaPromedio } from "./Resultados";
 
 type Param = string | string[] | undefined;
@@ -79,6 +79,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const hayFiltro = claves.length > 0;
 
+  // Doble clic en una persona del gráfico → Todas las cotizaciones filtrado por ella (RF-118).
+  const periodoDias = diasDeLosMeses(claves);
+  const alListado = periodoDias ? { periodo: periodoDias, mesesDias: Object.fromEntries(claves.map((c) => [c, diasDelMes(c)])) } : undefined;
+
   // Pestaña Empresas/Grupos: totales de toda la aplicación (siempre visibles, no dependen de la selección).
   const general = resumenGeneral(empresas, personas);
   const generales = cotizacionesGenerales(totalHistorico, cotizaciones);
@@ -94,16 +98,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </p>
       )}
 
-      <nav className="dash-tabs" aria-label="Secciones del dashboard">
-        <Link className="dash-tab" href="/admin/dashboard?tab=personas" aria-current={tab === "personas" ? "page" : undefined}>
-          Personas
-        </Link>
-        {esSuper && (
-          <Link className="dash-tab" href="/admin/dashboard?tab=empresas" aria-current={tab === "empresas" ? "page" : undefined}>
-            Empresas / Grupos
-          </Link>
-        )}
-      </nav>
+      <DashboardTabs actual={tab} esSuper={esSuper} />
 
       {tab === "empresas" && (
         <Tarjetas
@@ -184,6 +179,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             e={estadistica}
             singular={tab === "empresas" ? "empresa o grupo" : "persona"}
             plural={tab === "empresas" ? "empresas y grupos" : "personas"}
+            alListado={tab === "personas" ? alListado : undefined}
           />
         </>
       )}

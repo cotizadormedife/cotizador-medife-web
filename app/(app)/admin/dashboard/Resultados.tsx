@@ -1,5 +1,6 @@
 import { etiquetaMes } from "@/lib/fechas";
 import type { Estadistica } from "@/lib/dashboard/estadisticas";
+import IrAlListado from "./IrAlListado";
 import { anchoBarra, elegirSeries, escalaY, estiloSerie, mostrarValores } from "@/lib/dashboard/grafico";
 
 // RF-106/RF-107: presentación de resultados del Dashboard — server components,
@@ -65,7 +66,10 @@ export function Tarjetas({ titulo, tarjetas, compacto }: { titulo?: string; tarj
 const ALTO = 320; // alto del área de barras, en px
 const ALTO_ETIQUETA = 24; // franja de los nombres de mes, debajo de las barras
 
-export function Comparativa({ e, singular, plural }: { e: Estadistica; singular: string; plural: string }) {
+export type NavegarAlListado = { periodo: { desde: string; hasta: string }; mesesDias: Record<string, { desde: string; hasta: string }> };
+
+// `alListado`: solo en Personas — con doble clic en una persona se abre "Todas las cotizaciones" filtrado por ella.
+export function Comparativa({ e, singular, plural, alListado }: { e: Estadistica; singular: string; plural: string; alListado?: NavegarAlListado }) {
   const { series, totalElegidas, recortado } = elegirSeries(e.filas);
   const hayDatos = series.length > 0;
   const maximo = Math.max(0, ...series.flatMap((s) => e.meses.map((m) => s.porMes[m] ?? 0)));
@@ -73,7 +77,7 @@ export function Comparativa({ e, singular, plural }: { e: Estadistica; singular:
   const ancho = anchoBarra(series.length);
   const conValores = mostrarValores(series.length, e.meses.length);
 
-  return (
+  const tarjeta = (
     <div className="card">
       <h2 style={{ fontSize: 16, margin: "0 0 4px" }}>Cotizaciones por mes</h2>
       <p style={{ fontSize: 12, color: "var(--text-neutral)", margin: "0 0 14px" }}>
@@ -84,6 +88,7 @@ export function Comparativa({ e, singular, plural }: { e: Estadistica; singular:
             <strong>Se muestran las {series.length} con más cotizaciones de las {totalElegidas} elegidas</strong> — para compararlas a todas, elegí menos.
           </>
         )}
+        {alListado && " Doble clic en una persona para ver sus cotizaciones."}
       </p>
 
       {!hayDatos ? (
@@ -92,7 +97,7 @@ export function Comparativa({ e, singular, plural }: { e: Estadistica; singular:
         <>
           <ul className="dash-leyenda" aria-label="Referencias">
             {series.map((s, i) => (
-              <li key={s.clave}>
+              <li key={s.clave} data-persona={alListado ? s.clave : undefined} className={alListado ? "dash-clic" : undefined}>
                 <span className="dash-leyenda-color" style={estiloSerie(i)} aria-hidden="true" />
                 <span className="dash-leyenda-nombre">{s.etiqueta}</span>
                 <span className="dash-leyenda-total">{fmtEntero(s.total)} en el período</span>
@@ -126,7 +131,9 @@ export function Comparativa({ e, singular, plural }: { e: Estadistica; singular:
                           return (
                             <div
                               key={s.clave}
-                              className="dash-comp-barra"
+                              className={alListado ? "dash-comp-barra dash-clic" : "dash-comp-barra"}
+                              data-persona={alListado ? s.clave : undefined}
+                              data-mes={alListado ? m : undefined}
                               style={{ width: ancho, height: Math.max(v > 0 ? 3 : 1, Math.round((v / tope) * ALTO)), ...estiloSerie(i) }}
                               title={`${s.etiqueta} · ${etiquetaMes(m)}: ${fmtEntero(v)} cotizaciones`}
                             >
@@ -148,4 +155,5 @@ export function Comparativa({ e, singular, plural }: { e: Estadistica; singular:
       )}
     </div>
   );
+  return alListado ? <IrAlListado periodo={alListado.periodo} mesesDias={alListado.mesesDias}>{tarjeta}</IrAlListado> : tarjeta;
 }

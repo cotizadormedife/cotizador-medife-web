@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fmtFechaAR, fmtFechaHoraAR, inicioDiaAR, inicioDiaSiguienteAR } from "./fechas";
+import { diasDeLosMeses, diasDelMes, fmtFechaAR, fmtFechaHoraAR, inicioDiaAR, inicioDiaSiguienteAR } from "./fechas";
 
 describe("fmtFechaHoraAR / fmtFechaAR", () => {
   it("muestra la hora de Argentina (UTC-3), no la del servidor", () => {
@@ -38,5 +38,18 @@ describe("filtros por día", () => {
       expect(inicioDiaAR(malo)).toBeNull();
       expect(inicioDiaSiguienteAR(malo)).toBeNull();
     }
+  });
+});
+
+describe("diasDelMes / diasDeLosMeses (filtro de fechas de Todas las cotizaciones)", () => {
+  it("primer y último día del mes, con bisiestos y fin de año", () => {
+    expect(diasDelMes("2026-10")).toEqual({ desde: "2026-10-01", hasta: "2026-10-31" });
+    expect(diasDelMes("2026-02")).toEqual({ desde: "2026-02-01", hasta: "2026-02-28" });
+    expect(diasDelMes("2028-02")).toEqual({ desde: "2028-02-01", hasta: "2028-02-29" });
+    expect(diasDelMes("2026-12")).toEqual({ desde: "2026-12-01", hasta: "2026-12-31" });
+  });
+  it("de varios meses: desde el primer día del primero hasta el último día del último", () => {
+    expect(diasDeLosMeses(["2026-10", "2026-08", "2026-09"])).toEqual({ desde: "2026-08-01", hasta: "2026-10-31" });
+    expect(diasDeLosMeses([])).toBeNull();
   });
 });
