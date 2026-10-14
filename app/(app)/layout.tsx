@@ -2,7 +2,9 @@ import Link from "next/link";
 import { requireApprovedUser } from "@/lib/auth/session";
 import { signOutAction } from "@/lib/auth/actions";
 import { listEmpresas } from "@/lib/empresas";
+import { Suspense } from "react";
 import EditProfileModal from "./EditProfileModal";
+import ProcesandoOverlay from "./ProcesandoOverlay";
 import { puedeVerDashboard } from "@/lib/dashboard/acceso";
 
 const LOGO_ORANGE = (
@@ -77,6 +79,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </header>
       <main style={{ padding: "28px 32px", maxWidth: 1280, margin: "0 auto" }}>{children}</main>
+      <Suspense fallback={null}>
+        <ProcesandoOverlay />
+      </Suspense>
     </div>
   );
 }

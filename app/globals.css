@@ -199,6 +199,50 @@ a {
   color: var(--brand-orange);
   border-bottom-color: var(--brand-orange);
 }
+.procesando-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(35, 35, 40, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: progress;
+}
+.procesando-caja {
+  background: #ffffff;
+  border-radius: var(--radius-card);
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+.procesando-caja p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.procesando-spinner {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 5px solid #f0d9cc;
+  border-top-color: var(--brand-orange);
+  animation: procesando-giro 0.9s linear infinite;
+}
+@keyframes procesando-giro {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .procesando-spinner {
+    animation-duration: 2.5s;
+  }
+}
 .dash-clic {
   cursor: pointer;
   user-select: none;

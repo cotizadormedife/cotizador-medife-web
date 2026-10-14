@@ -68,7 +68,7 @@ const ALTO_ETIQUETA = 24; // franja de los nombres de mes, debajo de las barras
 
 export type NavegarAlListado = { periodo: { desde: string; hasta: string }; mesesDias: Record<string, { desde: string; hasta: string }> };
 
-// `alListado`: solo en Personas — con doble clic en una persona se abre "Todas las cotizaciones" filtrado por ella.
+// `alListado`: solo en Personas — con un clic en una persona se abre "Todas las cotizaciones" filtrado por ella.
 export function Comparativa({ e, singular, plural, alListado }: { e: Estadistica; singular: string; plural: string; alListado?: NavegarAlListado }) {
   const { series, totalElegidas, recortado } = elegirSeries(e.filas);
   const hayDatos = series.length > 0;
@@ -88,7 +88,7 @@ export function Comparativa({ e, singular, plural, alListado }: { e: Estadistica
             <strong>Se muestran las {series.length} con más cotizaciones de las {totalElegidas} elegidas</strong> — para compararlas a todas, elegí menos.
           </>
         )}
-        {alListado && " Doble clic en una persona para ver sus cotizaciones."}
+        {alListado && " Hacé clic en una persona para ver sus cotizaciones."}
       </p>
 
       {!hayDatos ? (

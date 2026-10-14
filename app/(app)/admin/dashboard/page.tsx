@@ -79,7 +79,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const hayFiltro = claves.length > 0;
 
-  // Doble clic en una persona del gráfico → Todas las cotizaciones filtrado por ella (RF-118).
+  // Clic en una persona del gráfico → Todas las cotizaciones filtrado por ella (RF-118/RF-120).
   const periodoDias = diasDeLosMeses(claves);
   const alListado = periodoDias ? { periodo: periodoDias, mesesDias: Object.fromEntries(claves.map((c) => [c, diasDelMes(c)])) } : undefined;
 
