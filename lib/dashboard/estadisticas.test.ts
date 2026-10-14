@@ -16,17 +16,15 @@ const persona = (id: string, empresa: string, extra: Partial<PersonaDash> = {}):
 });
 const cot = (autor: string, iso: string): CotizacionDash => ({ created_by: autor, created_at: iso });
 
-describe("puedeVerDashboard (RF-106: solo el usuario de Diego hasta aprobar el release)", () => {
-  it("habilita a Diego (super_admin), sin importar mayúsculas ni espacios", () => {
+describe("puedeVerDashboard (RF-119: release aprobado, lo ven todos los admin y super_admin)", () => {
+  it("habilita a cualquier super_admin y admin, sin importar el mail", () => {
     expect(puedeVerDashboard({ role: "super_admin", email: "diegoschwartzman@medife.com.ar" })).toBe(true);
-    expect(puedeVerDashboard({ role: "super_admin", email: "  DiegoSchwartzman@Medife.com.ar " })).toBe(true);
-  });
-  it("no habilita a otros super_admin ni admin mientras no se apruebe el release", () => {
-    expect(puedeVerDashboard({ role: "super_admin", email: "otro@medife.com.ar" })).toBe(false);
-    expect(puedeVerDashboard({ role: "admin", email: "otro@medife.com.ar" })).toBe(false);
+    expect(puedeVerDashboard({ role: "super_admin", email: "otro@medife.com.ar" })).toBe(true);
+    expect(puedeVerDashboard({ role: "admin", email: "otro@broker.com" })).toBe(true);
   });
   it("un vendedor nunca lo ve, ni siquiera con el mail de Diego", () => {
     expect(puedeVerDashboard({ role: "vendedor", email: "diegoschwartzman@medife.com.ar" })).toBe(false);
+    expect(puedeVerDashboard({ role: "vendedor", email: "otro@medife.com.ar" })).toBe(false);
   });
 });
 
