@@ -7,13 +7,13 @@ import {
   dedupeTacticosByPlan,
   findSegmentoJovenPolicies,
   isAutoPolicy,
-  isCompatible,
   isPolicyMemberEligible,
   isPolicyRelevant,
   isRequisitoCumplido,
   resolverOpcionesCompatibles,
 } from "@/lib/pricing/policyEligibility";
 import type { DiscountPolicy, Miembro, TipoMiembro } from "@/lib/pricing/types";
+import { aplicarToggle } from "@/lib/pricing/policyToggle";
 import { fmtFechaAR } from "@/lib/fechas";
 import OptionGroup from "./OptionGroup";
 import QuoteResults, { fmtPct } from "./QuoteResults";
@@ -217,40 +217,7 @@ export default function QuoteForm({
   // reescribe usando el slug de cada política (estable dentro de la misma
   // lista) en vez del id.
   function togglePolicy(id: string, checked: boolean) {
-    const policyOf = (x: string) => policies.find((p) => p.id === x);
-    const slugOf = (x: string) => policyOf(x)?.slug ?? "";
-    setSelectedPolicyIds((prev) => {
-      let next = checked ? [...prev, id] : prev.filter((x) => x !== id);
-      const slug = slugOf(id);
-      if (checked && slug.startsWith("opcion-4")) next = next.filter((x) => !slugOf(x).startsWith("opcion-5"));
-      if (checked && slug.startsWith("opcion-5")) next = next.filter((x) => !slugOf(x).startsWith("opcion-4"));
-      // RF-60: Opción 1, 2 y 3 son mutuamente excluyentes entre sí.
-      const isUno23 = (x: string) => {
-        const s = slugOf(x);
-        return s.startsWith("opcion-1") || s.startsWith("opcion-2") || s.startsWith("opcion-3");
-      };
-      if (checked && isUno23(id)) next = next.filter((x) => x === id || !isUno23(x));
-      // RF-94: como mucho un descuento GAF activo a la vez — tildar uno destilda los demás.
-      const isGaf = (x: string) => policyOf(x)?.grupo === "gaf";
-      if (checked && isGaf(id)) next = next.filter((x) => x === id || !isGaf(x));
-      // RF-61: sin Opción 4 seleccionada, Opción 6 no es válida — se destilda sola.
-      if (!next.some((x) => slugOf(x).startsWith("opcion-4"))) next = next.filter((x) => !slugOf(x).startsWith("opcion-6"));
-      // RF-M10: reglas de "no acumulable" leídas del Excel (excluyeOtros/
-      // excluyeGrupo) — al tildar una, se destilda en el momento cualquier
-      // otra ya elegida que sea incompatible con ella, en cualquiera de los
-      // dos sentidos (la nueva excluye a la vieja, o la vieja excluía a la
-      // nueva).
-      if (checked) {
-        const thisPolicy = policyOf(id);
-        if (thisPolicy) {
-          next = next.filter((x) => {
-            const other = policyOf(x);
-            return !other || isCompatible(thisPolicy, other);
-          });
-        }
-      }
-      return next;
-    });
+    setSelectedPolicyIds((prev) => aplicarToggle(policies, prev, id, checked));
   }
 
   // RF-92: "Nueva cotización" — vuelve todos los campos a su valor default
