@@ -646,31 +646,22 @@ describe("computeQuote", () => {
     expect(result.planes[4].descuentoComercialPct).toBeCloseTo(-0.25, 5);
   });
 
-  it("RF-M10: dos descuentos tácticos que compiten por el mismo plan — solo aplica el de mayor descuento", () => {
-    const debil = policy({
-      id: "dto-mes-plata-debil",
-      grupo: "tactico",
-      valorPct: -0.1,
-      planRules: PLANES.map((p) => ({ planCode: p, aplica: p === "PLATA", valorOverride: null })),
-    });
-    const fuerte = policy({
-      id: "dto-mes-plata-fuerte",
-      grupo: "tactico",
-      valorPct: -0.2,
-      planRules: PLANES.map((p) => ({ planCode: p, aplica: p === "PLATA", valorOverride: null })),
-    });
-    const input: QuoteInput = {
-      region: "AMBA",
-      categoria: "Vol",
-      procedencia: "Otros",
-      filial: "CABA",
-      miembros: [{ tipo: "Titular", rango: "36-40" }],
-      selectedPolicyIds: ["dto-mes-plata-debil", "dto-mes-plata-fuerte"],
+  describe("RF-124: descuentos tácticos que compiten por el mismo plan", () => {
+    const soloPlata = PLANES.map((p) => ({ planCode: p, aplica: p === "PLATA", valorOverride: null }));
+    const debil = policy({ id: "dto-mes-plata-debil", grupo: "tactico", valorPct: -0.1, planRules: soloPlata });
+    const fuerte = policy({ id: "dto-mes-plata-fuerte", grupo: "tactico", valorPct: -0.2, planRules: soloPlata });
+    const cotizar = (selectedPolicyIds: string[]) => {
+      const input: QuoteInput = { region: "AMBA", categoria: "Vol", procedencia: "Otros", filial: "CABA", miembros: [{ tipo: "Titular", rango: "36-40" }], selectedPolicyIds };
+      return computeQuote(input, baseData([debil, fuerte], priceRows("36-40", AMBA_OBL_TITULAR_36_40)));
     };
-    const data = baseData([debil, fuerte], priceRows("36-40", AMBA_OBL_TITULAR_36_40));
-    const result = computeQuote(input, data);
-    // -20% (el fuerte), no -10% ni -30% (ambos sumados).
-    expect(result.planes[4].descuentoComercialPct).toBeCloseTo(-0.2, 5);
+
+    it("se puede aplicar el descuento MENOR aunque haya uno mayor disponible", () => {
+      expect(cotizar(["dto-mes-plata-debil"]).planes[4].descuentoComercialPct).toBeCloseTo(-0.1, 5);
+    });
+    it("si llegan los dos, no se acumulan: queda el último elegido (no necesariamente el mayor)", () => {
+      expect(cotizar(["dto-mes-plata-fuerte", "dto-mes-plata-debil"]).planes[4].descuentoComercialPct).toBeCloseTo(-0.1, 5);
+      expect(cotizar(["dto-mes-plata-debil", "dto-mes-plata-fuerte"]).planes[4].descuentoComercialPct).toBeCloseTo(-0.2, 5);
+    });
   });
 
   it("IVA 10.5% se aplica en Voluntario", () => {

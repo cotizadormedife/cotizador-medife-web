@@ -80,3 +80,24 @@ describe("aplicarToggle — reglas que no cambian", () => {
     expect(aplicarToggle([g1, g2], ["g1"], "g2", true)).toEqual(["g2"]);
   });
 });
+
+describe("aplicarToggle — descuentos tácticos que compiten (RF-124)", () => {
+  const soloPlata = PLANES.map((p) => ({ planCode: p, aplica: p === "PLATA", valorOverride: null }));
+  const soloOro = PLANES.map((p) => ({ planCode: p, aplica: p === "ORO", valorOverride: null }));
+  const fuerte = policy({ id: "t-fuerte", slug: "dto-mes-plata-20", grupo: "tactico", valorPct: -0.2, planRules: soloPlata });
+  const debil = policy({ id: "t-debil", slug: "dto-mes-plata-10", grupo: "tactico", valorPct: -0.1, planRules: soloPlata });
+  const otroPlan = policy({ id: "t-oro", slug: "dto-mes-oro-15", grupo: "tactico", valorPct: -0.15, planRules: soloOro });
+  const o1 = policy({ id: "o1", slug: "opcion-1-Obl" });
+  const todas = [fuerte, debil, otroPlan, o1];
+
+  it("se puede tildar el menor aunque exista uno mayor: queda tildado", () => {
+    expect(aplicarToggle(todas, [], "t-debil", true)).toEqual(["t-debil"]);
+  });
+  it("tildar uno destilda el que compite con él por el mismo plan (el último elegido manda)", () => {
+    expect(aplicarToggle(todas, ["t-fuerte"], "t-debil", true)).toEqual(["t-debil"]);
+    expect(aplicarToggle(todas, ["t-debil"], "t-fuerte", true)).toEqual(["t-fuerte"]);
+  });
+  it("no toca a los que no compiten ni a las Opciones", () => {
+    expect(aplicarToggle(todas, ["t-oro", "o1"], "t-debil", true)).toEqual(["t-oro", "o1", "t-debil"]);
+  });
+});

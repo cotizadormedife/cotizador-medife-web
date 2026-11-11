@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dedupeTacticosByPlan, isCompatible, isPolicyMemberEligible } from "./policyEligibility";
+import { isCompatible, isPolicyMemberEligible, resolverTacticosSolapados, tacticosSolapan } from "./policyEligibility";
 import type { DiscountPolicy, Miembro } from "./types";
 import { PLANES } from "./types";
 
@@ -100,34 +100,24 @@ describe("isPolicyMemberEligible", () => {
   });
 });
 
-describe("dedupeTacticosByPlan", () => {
-  it("RF-M10 regla 5: dos tácticos que compiten por el mismo plan — se queda el de mayor descuento", () => {
-    const debil = policy({ id: "dto-mes-plata-15", grupo: "tactico", valorPct: -0.15, planRules: soloPlan("PLATA", -0.15) });
-    const fuerte = policy({ id: "dto-mes-plata-20", grupo: "tactico", valorPct: -0.2, planRules: soloPlan("PLATA", -0.2) });
-    const result = dedupeTacticosByPlan([debil, fuerte]);
-    expect(result.map((p) => p.id)).toEqual(["dto-mes-plata-20"]);
-  });
+describe("resolverTacticosSolapados (RF-124)", () => {
+  const debil = policy({ id: "dto-plata-15", grupo: "tactico", valorPct: -0.15, planRules: soloPlan("PLATA", -0.15) });
+  const fuerte = policy({ id: "dto-plata-20", grupo: "tactico", valorPct: -0.2, planRules: soloPlan("PLATA", -0.2) });
 
+  it("dos tácticos que compiten por el mismo plan: queda el ÚLTIMO elegido, aunque sea el menor", () => {
+    expect(resolverTacticosSolapados([debil, fuerte], ["dto-plata-20", "dto-plata-15"]).map((p) => p.id)).toEqual(["dto-plata-15"]);
+    expect(resolverTacticosSolapados([debil, fuerte], ["dto-plata-15", "dto-plata-20"]).map((p) => p.id)).toEqual(["dto-plata-20"]);
+  });
+  it("un táctico solo se aplica aunque exista otro mayor disponible", () => {
+    expect(resolverTacticosSolapados([debil], ["dto-plata-15"]).map((p) => p.id)).toEqual(["dto-plata-15"]);
+  });
   it("tácticos que no comparten ningún plan conviven los dos", () => {
-    const plata = policy({ id: "dto-mes-plata", grupo: "tactico", valorPct: -0.15, planRules: soloPlan("PLATA", -0.15) });
-    const oro = policy({ id: "dto-mes-oro", grupo: "tactico", valorPct: -0.2, planRules: soloPlan("ORO", -0.2) });
-    const result = dedupeTacticosByPlan([plata, oro]);
-    expect(result.map((p) => p.id).sort()).toEqual(["dto-mes-oro", "dto-mes-plata"]);
+    const oro = policy({ id: "dto-oro", grupo: "tactico", valorPct: -0.2, planRules: soloPlan("ORO", -0.2) });
+    expect(resolverTacticosSolapados([debil, oro], ["dto-plata-15", "dto-oro"]).map((p) => p.id).sort()).toEqual(["dto-oro", "dto-plata-15"]);
   });
-
-  it("con 3 en cadena, el más débil se descarta aunque no compita directo con el más fuerte", () => {
-    // A: PLATA+ORO -30% (el más fuerte)
-    // B: ORO -20% (compite con A en ORO)
-    // C: PLATA -10% (compite con A en PLATA, no con B)
-    const a = policy({
-      id: "a",
-      grupo: "tactico",
-      valorPct: -0.3,
-      planRules: PLANES.map((p) => ({ planCode: p, aplica: p === "PLATA" || p === "ORO", valorOverride: null })),
-    });
-    const b = policy({ id: "b", grupo: "tactico", valorPct: -0.2, planRules: soloPlan("ORO", -0.2) });
-    const c = policy({ id: "c", grupo: "tactico", valorPct: -0.1, planRules: soloPlan("PLATA", -0.1) });
-    const result = dedupeTacticosByPlan([b, c, a]);
-    expect(result.map((p) => p.id)).toEqual(["a"]);
+  it("tacticosSolapan: solo cuenta los planes en los que AMBOS aplican", () => {
+    const oro = policy({ id: "dto-oro", grupo: "tactico", planRules: soloPlan("ORO", -0.2) });
+    expect(tacticosSolapan(debil, fuerte)).toBe(true);
+    expect(tacticosSolapan(debil, oro)).toBe(false);
   });
 });

@@ -3,7 +3,6 @@ import type { DiscountPolicy, Miembro, PlanBreakdown, PricingData, QuoteInput, Q
 import { matchesPlanName } from "./planMatch";
 import { esHijoElegibleAjuste, getMiembroKey, rangoEfectivo, rangoEfectivoPareja } from "./memberKey";
 import {
-  dedupeTacticosByPlan,
   findAjusteHijosPolicy,
   findDescuentoFilialPolicy,
   findSegmentoJovenPolicies,
@@ -11,6 +10,7 @@ import {
   isPolicyRelevant,
   isRequisitoCumplido,
   magnitudPlan,
+  resolverTacticosSolapados,
   resolverOpcionesCompatibles,
 } from "./policyEligibility";
 
@@ -152,10 +152,9 @@ export function computeQuote(input: QuoteInput, data: PricingData): QuoteResult 
     requisitoOk.filter((p) => isExclusionOk(p, requisitoOk)),
     input.selectedPolicyIds
   );
-  // RF-M10: dos descuentos tácticos no pueden convivir para el mismo plan —
-  // se valida también acá (no solo en el formulario) para que no dependa
-  // solo del cliente.
-  const tacticoDeduped = dedupeTacticosByPlan(exclusionOk.filter((p) => p.grupo === "tactico"));
+  // RF-M10/RF-124: dos descuentos tácticos no pueden convivir para el mismo plan — se valida también acá (no solo en
+  // el formulario). Ya no se descarta el menor: si llegan dos que compiten, queda el último elegido.
+  const tacticoDeduped = resolverTacticosSolapados(exclusionOk.filter((p) => p.grupo === "tactico"), input.selectedPolicyIds);
   const selectedPolicies = exclusionOk.filter((p) => p.grupo !== "tactico").concat(tacticoDeduped);
   const gafPolicies = selectedPolicies.filter((p) => p.procedenciaGate === "GAF");
   const allBlanketPolicies = selectedPolicies.filter((p) => p.grupo !== "ajuste" && p.grupo !== "gaf");

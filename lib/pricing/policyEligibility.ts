@@ -168,10 +168,9 @@ export function isCompatible(a: DiscountPolicy, b: DiscountPolicy): boolean {
   return true;
 }
 
-// RF-M10: dos descuentos tácticos no pueden convivir para el mismo plan —
-// si se superponen en al menos un plan, se muestra/aplica solo el de mayor
-// magnitud de descuento; el resto se descarta por completo (no solo para
-// ese plan puntual, la fila entera queda afuera).
+// RF-M10: dos descuentos tácticos no pueden convivir para el mismo plan.
+// RF-124: ya NO se descarta el de menor magnitud — se muestran todos y quien cotiza elige; si se llegan a elegir dos
+// que compiten, queda el último que se eligió (ver resolverTacticosSolapados).
 export function magnitudPlan(policy: DiscountPolicy): number {
   let max = 0;
   for (const rule of policy.planRules) {
@@ -182,15 +181,20 @@ export function magnitudPlan(policy: DiscountPolicy): number {
   return max;
 }
 
-export function dedupeTacticosByPlan(tacticos: DiscountPolicy[]): DiscountPolicy[] {
-  const sorted = [...tacticos].sort((a, b) => magnitudPlan(b) - magnitudPlan(a));
-  const accepted: DiscountPolicy[] = [];
-  for (const p of sorted) {
-    const pPlanes = new Set(p.planRules.filter((r) => r.aplica).map((r) => r.planCode));
-    const colisiona = accepted.some((a) => a.planRules.some((r) => r.aplica && pPlanes.has(r.planCode)));
-    if (!colisiona) accepted.push(p);
-  }
-  return accepted;
+// ¿Comparten al menos un plan en el que los dos aplican? Entonces no se pueden acumular.
+export function tacticosSolapan(a: DiscountPolicy, b: DiscountPolicy): boolean {
+  const planesA = new Set(a.planRules.filter((r) => r.aplica).map((r) => r.planCode));
+  return b.planRules.some((r) => r.aplica && planesA.has(r.planCode));
+}
+
+// RF-124: de los tácticos que compiten por algún plan queda el elegido más recientemente (igual que en el formulario,
+// donde tildar uno destilda los que compiten con él). `orden` son los ids en el orden en que se eligieron
+// (selectedPolicyIds). Antes quedaba siempre el de mayor descuento.
+export function resolverTacticosSolapados(tacticos: DiscountPolicy[], orden: string[]): DiscountPolicy[] {
+  const porRecencia = [...tacticos].sort((a, b) => orden.indexOf(b.id) - orden.indexOf(a.id));
+  const kept: DiscountPolicy[] = [];
+  for (const p of porRecencia) if (!kept.some((k) => tacticosSolapan(p, k))) kept.push(p);
+  return tacticos.filter((p) => kept.includes(p));
 }
 
 // Elegibilidad de un usuario individual seleccionable: excluye las 4 categorías

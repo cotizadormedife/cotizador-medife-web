@@ -4,12 +4,12 @@ import { useMemo, useState, useTransition } from "react";
 import { runQuoteAction, type RunQuoteState } from "./actions";
 import { RANGOS_BY_TIPO, RANGOS_HIJO_INTERIOR } from "@/lib/pricing/memberKey";
 import {
-  dedupeTacticosByPlan,
   findSegmentoJovenPolicies,
   isAutoPolicy,
   isPolicyMemberEligible,
   isPolicyRelevant,
   isRequisitoCumplido,
+  magnitudPlan,
   resolverOpcionesCompatibles,
 } from "@/lib/pricing/policyEligibility";
 import type { DiscountPolicy, Miembro, TipoMiembro } from "@/lib/pricing/types";
@@ -208,9 +208,9 @@ export default function QuoteForm({
 
   const gaf = selectable.filter((p) => getSection(p) === "gaf");
   const estrategico = selectable.filter((p) => getSection(p) === "estrategico");
-  // RF-M10: dos descuentos tácticos no pueden convivir para el mismo plan —
-  // solo se muestra/deja elegir el de mayor descuento en ese solapamiento.
-  const tactico = dedupeTacticosByPlan(selectable.filter((p) => getSection(p) === "tactico"));
+  // RF-124: se muestran TODOS los descuentos tácticos disponibles (antes se escondía el menor cuando competía por un
+  // plan con uno mayor), del mayor al menor. Si se tildan dos que compiten por un plan, queda el último (aplicarToggle).
+  const tactico = selectable.filter((p) => getSection(p) === "tactico").sort((a, b) => magnitudPlan(b) - magnitudPlan(a));
 
   // RF-M9 (fix): esto comparaba id.startsWith("opcion-N"), pero desde M8 el
   // id es un uuid opaco — esas exclusiones de UI quedaron muertas. Se

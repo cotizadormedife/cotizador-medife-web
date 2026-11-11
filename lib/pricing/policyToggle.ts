@@ -1,4 +1,4 @@
-import { isCompatible, isRequisitoCumplido } from "./policyEligibility";
+import { isCompatible, isRequisitoCumplido, tacticosSolapan } from "./policyEligibility";
 import type { DiscountPolicy } from "./types";
 
 // Qué descuentos quedan tildados después de tildar/destildar uno en el formulario de cotización.
@@ -28,6 +28,17 @@ export function aplicarToggle(policies: DiscountPolicy[], prev: string[], id: st
       next = next.filter((x) => {
         const other = policyOf(x);
         return !other || isCompatible(thisPolicy, other);
+      });
+    }
+  }
+  // RF-124: dos descuentos tácticos que compiten por el mismo plan no se acumulan — al tildar uno se destilda el otro
+  // (ya no se esconde el menor: se puede elegir cualquiera de los dos).
+  if (checked) {
+    const esta = policyOf(id);
+    if (esta?.grupo === "tactico") {
+      next = next.filter((x) => {
+        const otra = policyOf(x);
+        return x === id || !otra || otra.grupo !== "tactico" || !tacticosSolapan(esta, otra);
       });
     }
   }
