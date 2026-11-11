@@ -9,6 +9,7 @@ import { parseRegionesFiliales, parsePlanesFromInfo } from "@/lib/excel/parseReg
 import { parseTopeAportes } from "@/lib/excel/parseTopeAportes";
 import { claveTopePorLista } from "@/lib/pricing/configPorLista";
 import { resolveUploadTarget } from "@/lib/pricing/repository";
+import { normalizarDescripcionLista } from "@/lib/pricing/descripcionLista";
 import { formatVigencia } from "@/lib/pricing/vigencia";
 import { logAction } from "@/lib/auditLog";
 
@@ -47,6 +48,10 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     return { ok: false, error: "El archivo debe ser .xlsx." };
   }
   const modo = formData.get("modo") === "pisar" ? "pisar" : "proximo";
+  // RF-122: descripción opcional de la lista (máx. 50 caracteres).
+  const desc = normalizarDescripcionLista(formData.get("descripcion"));
+  if ("error" in desc) return { ok: false, error: desc.error };
+  const descripcion = desc.valor;
 
   const buffer = await file.arrayBuffer();
   const supabase = createServiceClient();
@@ -177,6 +182,14 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     return error ? ["No se pudo guardar el tope de aportes de esta lista: " + error.message + " — se usa el tope general del sistema."] : [];
   }
 
+  // RF-122: en una versión nueva se guarda tal cual; al pisar una existente solo se reemplaza si se escribió algo
+  // (vacío = conserva la descripción que ya tenía, así corregir un Excel no la borra).
+  async function guardarDescripcion(versionId: string): Promise<string[]> {
+    if (descripcion == null) return [];
+    const { error } = await supabase.from("price_list_versions").update({ descripcion }).eq("id", versionId);
+    return error ? ["No se pudo guardar la descripción de la lista: " + error.message] : [];
+  }
+
   if (target.existingId) {
     const { error: rpcErr } = await supabase.rpc("overwrite_price_list_version", {
       p_version_id: target.existingId,
@@ -194,6 +207,7 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     }
 
     const topeErrOverwrite = await guardarTope(target.existingId);
+    const descErrOverwrite = await guardarDescripcion(target.existingId);
     await logAction({
       actorId: actor.id,
       action: modo === "pisar" ? "price_list.overwrite_active" : "price_list.overwrite_proximo",
@@ -209,7 +223,7 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
       versionId: target.existingId,
       vigenciaLabel: formatVigencia(target.vigencia, (target.existingVersionNum ?? 1) + 1),
       vigenteDeInmediato: modo === "pisar",
-      report: { ...combinedReport, topeWarnings: [...combinedReport.topeWarnings, ...topeErrOverwrite] },
+      report: { ...combinedReport, warnings: [...combinedReport.warnings, ...descErrOverwrite], topeWarnings: [...combinedReport.topeWarnings, ...topeErrOverwrite] },
     };
   }
 
@@ -232,6 +246,7 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
   }
 
   const topeErrInsert = await guardarTope(newVersionId);
+  const descErrInsert = await guardarDescripcion(newVersionId);
   await logAction({ actorId: actor.id, action: "price_list.upload", targetType: "price_list_version", targetId: newVersionId, meta: combinedReport });
 
   revalidatePath("/super-admin/price-lists");
@@ -241,6 +256,6 @@ export async function uploadPriceListAction(formData: FormData): Promise<UploadS
     versionId: newVersionId,
     vigenciaLabel: formatVigencia(target.vigencia, 1),
     vigenteDeInmediato: false,
-    report: { ...combinedReport, topeWarnings: [...combinedReport.topeWarnings, ...topeErrInsert] },
+    report: { ...combinedReport, warnings: [...combinedReport.warnings, ...descErrInsert], topeWarnings: [...combinedReport.topeWarnings, ...topeErrInsert] },
   };
 }

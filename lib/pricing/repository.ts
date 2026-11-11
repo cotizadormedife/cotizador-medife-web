@@ -172,7 +172,7 @@ export async function getPriceListVersionInfo(id: string): Promise<SelectablePri
   };
 }
 
-export type VigenciaOption = { id: string; label: string };
+export type VigenciaOption = { id: string; label: string; descripcion: string | null };
 export type VigenciaSelection = {
   // La lista de "mes actual". Si no hay ninguna con vigencia = hoy, cae a la
   // más reciente anterior (actualEsFallback = true) — RF-65.
@@ -187,7 +187,7 @@ export async function getVigenciaSelection(): Promise<VigenciaSelection> {
   const supabase = createServiceClient();
   const { data } = await supabase
     .from("price_list_versions")
-    .select("id, vigencia_anio, vigencia_mes, version_num")
+    .select("id, vigencia_anio, vigencia_mes, version_num, descripcion")
     .eq("habilitada", true)
     .order("vigencia_anio", { ascending: false })
     .order("vigencia_mes", { ascending: false });
@@ -206,11 +206,11 @@ export async function getVigenciaSelection(): Promise<VigenciaSelection> {
 
   return {
     actual: actualRow
-      ? { id: actualRow.id, label: formatVigencia({ anio: actualRow.vigencia_anio, mes: actualRow.vigencia_mes }, actualRow.version_num) }
+      ? { id: actualRow.id, label: formatVigencia({ anio: actualRow.vigencia_anio, mes: actualRow.vigencia_mes }, actualRow.version_num), descripcion: actualRow.descripcion ?? null }
       : null,
     actualEsFallback: !matchHoy && !!actualRow,
     siguiente: matchSiguiente
-      ? { id: matchSiguiente.id, label: formatVigencia({ anio: matchSiguiente.vigencia_anio, mes: matchSiguiente.vigencia_mes }, matchSiguiente.version_num) }
+      ? { id: matchSiguiente.id, label: formatVigencia({ anio: matchSiguiente.vigencia_anio, mes: matchSiguiente.vigencia_mes }, matchSiguiente.version_num), descripcion: matchSiguiente.descripcion ?? null }
       : null,
   };
 }

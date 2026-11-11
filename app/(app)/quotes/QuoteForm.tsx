@@ -21,7 +21,7 @@ import QuoteResults, { fmtPct } from "./QuoteResults";
 type Region = { code: string; nombre: string; sort_order: number };
 type Filial = { code: string; region_code: string; nombre: string; sort_order: number };
 type PriceListVersion = { id: string; sourceFilename: string; uploadedAt: string; vigenciaLabel: string; disabled?: boolean };
-type VigenciaOption = { id: string; label: string };
+type VigenciaOption = { id: string; label: string; descripcion: string | null };
 type VigenciaSelection = { actual: VigenciaOption | null; actualEsFallback: boolean; siguiente: VigenciaOption | null };
 // RF-M9: el set completo (regiones, filiales, descuentos) de una lista de
 // precios puntual — precargado por page.tsx para cada lista seleccionable,
@@ -294,10 +294,11 @@ export default function QuoteForm({
                   name="vigencia"
                   value={priceListVersionId}
                   onChange={onVigenciaChange}
+                  apilado
                   options={[
-                    ...(vigenciaSelection.actual ? [{ value: vigenciaSelection.actual.id, label: vigenciaSelection.actual.label }] : []),
+                    ...(vigenciaSelection.actual ? [{ value: vigenciaSelection.actual.id, label: vigenciaSelection.actual.label, descripcion: vigenciaSelection.actual.descripcion }] : []),
                     ...(vigenciaSelection.siguiente
-                      ? [{ value: vigenciaSelection.siguiente.id, label: vigenciaSelection.siguiente.label }]
+                      ? [{ value: vigenciaSelection.siguiente.id, label: vigenciaSelection.siguiente.label, descripcion: vigenciaSelection.siguiente.descripcion }]
                       : []),
                   ]}
                 />

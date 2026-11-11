@@ -9,7 +9,7 @@ export default async function PriceListsPage() {
   const [{ data: versionsData }, proximoTarget] = await Promise.all([
     supabase
       .from("price_list_versions")
-      .select("id, source_filename, vigencia_anio, vigencia_mes, version_num, uploaded_at, activated_at, parse_report, uploader:profiles!price_list_versions_uploaded_by_fkey(nombre, apellido)")
+      .select("id, source_filename, descripcion, vigencia_anio, vigencia_mes, version_num, uploaded_at, activated_at, parse_report, uploader:profiles!price_list_versions_uploaded_by_fkey(nombre, apellido)")
       .order("uploaded_at", { ascending: false }),
     resolveUploadTarget("proximo").catch(() => null),
   ]);
@@ -91,6 +91,7 @@ export default async function PriceListsPage() {
               <tr>
                 <th style={th}>Vigencia</th>
                 <th style={th}>Archivo</th>
+                <th style={th}>Descripción</th>
                 <th style={th}>Estado</th>
                 <th style={th}>Subida</th>
                 <th style={th}>Activada</th>
@@ -105,6 +106,7 @@ export default async function PriceListsPage() {
                     <strong>{formatVigencia({ anio: v.vigencia_anio, mes: v.vigencia_mes }, v.version_num)}</strong>
                   </td>
                   <td style={td}>{v.source_filename}</td>
+                  <td style={td}>{v.descripcion ?? "—"}</td>
                   <td style={td}>{esActiva(v) ? "Activa" : "Inactiva"}</td>
                   <td style={td}>
                     {fmtFechaHoraAR(v.uploaded_at)}

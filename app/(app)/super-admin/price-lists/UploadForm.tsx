@@ -17,6 +17,7 @@ export default function UploadForm({ existingProximoLabel }: { existingProximoLa
   const [pending, startTransition] = useTransition();
   const [fileName, setFileName] = useState<string | null>(null);
   const [modo, setModo] = useState<Modo>("proximo");
+  const [descripcion, setDescripcion] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   function submit(formData: FormData) {
@@ -42,6 +43,7 @@ export default function UploadForm({ existingProximoLabel }: { existingProximoLa
       if (res.ok) {
         if (fileRef.current) fileRef.current.value = "";
         setFileName(null);
+        setDescripcion("");
         setModo("proximo");
       }
     });
@@ -82,6 +84,27 @@ export default function UploadForm({ existingProximoLabel }: { existingProximoLa
           <button type="button" onClick={() => fileRef.current?.click()} style={{ padding: "8px 16px", fontSize: 13, minHeight: 0 }}>
             Seleccionar archivo
           </button>
+          {/* RF-122: descripción opcional de la lista (máx. 50), del mismo tamaño y alineada con el campo del archivo */}
+          <input
+            type="text"
+            name="descripcion"
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            maxLength={50}
+            placeholder="Descripción (opcional, máx. 50 caracteres)"
+            aria-label="Descripción de la lista (opcional, máximo 50 caracteres)"
+            style={{
+              boxSizing: "border-box",
+              width: 584,
+              height: 44,
+              minHeight: 0,
+              padding: "0 14px",
+              border: "1px solid var(--border-default)",
+              borderRadius: "var(--radius-input)",
+              fontSize: 14,
+              background: "#ffffff",
+            }}
+          />
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 44, fontSize: 12, whiteSpace: "nowrap" }}>
