@@ -211,6 +211,14 @@ export default function QuoteForm({
   // RF-124: se muestran TODOS los descuentos tácticos disponibles (antes se escondía el menor cuando competía por un
   // plan con uno mayor), del mayor al menor. Si se tildan dos que compiten por un plan, queda el último (aplicarToggle).
   const tactico = selectable.filter((p) => getSection(p) === "tactico").sort((a, b) => magnitudPlan(b) - magnitudPlan(a));
+  // Si dos a la vista son iguales en nombre y porcentaje (el Excel los trae con distinto plazo, ej. 6 y 12 meses), se
+  // muestra el plazo para poder distinguirlos.
+  const conPlazo = new Set<string>();
+  {
+    const grupos = new Map<string, DiscountPolicy[]>();
+    for (const p of tactico) grupos.set(`${p.nombre}|${p.valorPct}`, [...(grupos.get(`${p.nombre}|${p.valorPct}`) ?? []), p]);
+    for (const g of grupos.values()) if (g.length > 1) g.forEach((p) => conPlazo.add(p.id));
+  }
 
   // RF-M9 (fix): esto comparaba id.startsWith("opcion-N"), pero desde M8 el
   // id es un uuid opaco — esas exclusiones de UI quedaron muertas. Se
@@ -459,7 +467,7 @@ export default function QuoteForm({
             selected={selectedPolicyIds}
             onToggle={togglePolicy}
           />
-          <DiscountSection title="Descuentos tácticos" items={tactico} selected={selectedPolicyIds} onToggle={togglePolicy} />
+          <DiscountSection title="Descuentos tácticos" items={tactico} selected={selectedPolicyIds} onToggle={togglePolicy} conPlazo={conPlazo} />
         </div>
 
         <button type="button" className="btn-primary" onClick={submit} disabled={pending} style={{ width: "100%" }}>
@@ -501,12 +509,14 @@ function DiscountSection({
   items,
   selected,
   onToggle,
+  conPlazo,
 }: {
   title: string;
   hint?: string;
   items: DiscountPolicy[];
   selected: string[];
   onToggle: (id: string, checked: boolean) => void;
+  conPlazo?: Set<string>; // ids a los que hay que mostrarles el plazo (tienen un "gemelo" a la vista)
 }) {
   if (items.length === 0) return null;
   return (
@@ -537,6 +547,7 @@ function DiscountSection({
             <span style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 600 }}>{p.nombre}</div>
               {p.detalle && <div style={{ color: "var(--text-neutral)", fontSize: 12 }}>{p.detalle}</div>}
+              {conPlazo?.has(p.id) && p.plazoMeses != null && <div style={{ fontSize: 12, fontWeight: 600 }}>Plazo: {p.plazoMeses} meses</div>}
               {p.fuenteComentario && (
                 <div style={{ color: "var(--text-neutral)", fontSize: 12, fontStyle: "italic" }}>{p.fuenteComentario}</div>
               )}
