@@ -10,6 +10,7 @@ import {
   isPolicyRelevant,
   isRequisitoCumplido,
   magnitudPlan,
+  tacticosMasConvenientes,
   resolverOpcionesCompatibles,
 } from "@/lib/pricing/policyEligibility";
 import type { DiscountPolicy, Miembro, TipoMiembro } from "@/lib/pricing/types";
@@ -213,6 +214,7 @@ export default function QuoteForm({
   const tactico = selectable.filter((p) => getSection(p) === "tactico").sort((a, b) => magnitudPlan(b) - magnitudPlan(a));
   // Si dos a la vista son iguales en nombre y porcentaje (el Excel los trae con distinto plazo, ej. 6 y 12 meses), se
   // muestra el plazo para poder distinguirlos.
+  const masConveniente = tacticosMasConvenientes(tactico);
   const conPlazo = new Set<string>();
   {
     const grupos = new Map<string, DiscountPolicy[]>();
@@ -467,7 +469,7 @@ export default function QuoteForm({
             selected={selectedPolicyIds}
             onToggle={togglePolicy}
           />
-          <DiscountSection title="Descuentos tácticos" items={tactico} selected={selectedPolicyIds} onToggle={togglePolicy} conPlazo={conPlazo} />
+          <DiscountSection title="Descuentos tácticos" items={tactico} selected={selectedPolicyIds} onToggle={togglePolicy} conPlazo={conPlazo} masConveniente={masConveniente} />
         </div>
 
         <button type="button" className="btn-primary" onClick={submit} disabled={pending} style={{ width: "100%" }}>
@@ -510,6 +512,7 @@ function DiscountSection({
   selected,
   onToggle,
   conPlazo,
+  masConveniente,
 }: {
   title: string;
   hint?: string;
@@ -517,6 +520,7 @@ function DiscountSection({
   selected: string[];
   onToggle: (id: string, checked: boolean) => void;
   conPlazo?: Set<string>; // ids a los que hay que mostrarles el plazo (tienen un "gemelo" a la vista)
+  masConveniente?: Set<string>; // ids con la marca verde "Opción más conveniente" (RF-125)
 }) {
   if (items.length === 0) return null;
   return (
@@ -545,7 +549,26 @@ function DiscountSection({
               style={{ width: "auto", minHeight: 0, accentColor: "var(--brand-orange)" }}
             />
             <span style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600 }}>{p.nombre}</div>
+              <div style={{ fontWeight: 600 }}>
+                {p.nombre}
+                {masConveniente?.has(p.id) && (
+                  <span
+                    style={{
+                      marginLeft: 8,
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      background: "#e6f4ea",
+                      color: "#1a7f37",
+                      border: "1px solid #b7dfc3",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Opción más conveniente
+                  </span>
+                )}
+              </div>
               {p.detalle && <div style={{ color: "var(--text-neutral)", fontSize: 12 }}>{p.detalle}</div>}
               {conPlazo?.has(p.id) && p.plazoMeses != null && <div style={{ fontSize: 12, fontWeight: 600 }}>Plazo: {p.plazoMeses} meses</div>}
               {p.fuenteComentario && (

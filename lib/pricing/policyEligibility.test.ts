@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isCompatible, isPolicyMemberEligible, resolverTacticosSolapados, tacticosSolapan } from "./policyEligibility";
+import { isCompatible, isPolicyMemberEligible, resolverTacticosSolapados, tacticosMasConvenientes, tacticosSolapan } from "./policyEligibility";
 import type { DiscountPolicy, Miembro } from "./types";
 import { PLANES } from "./types";
 
@@ -119,5 +119,28 @@ describe("resolverTacticosSolapados (RF-124)", () => {
     const oro = policy({ id: "dto-oro", grupo: "tactico", planRules: soloPlan("ORO", -0.2) });
     expect(tacticosSolapan(debil, fuerte)).toBe(true);
     expect(tacticosSolapan(debil, oro)).toBe(false);
+  });
+});
+
+describe("tacticosMasConvenientes (RF-125)", () => {
+  const t = (id: string, valor: number, planes: string[]) =>
+    policy({ id, grupo: "tactico", valorPct: valor, planRules: PLANES.map((p) => ({ planCode: p, aplica: planes.includes(p), valorOverride: null })) });
+
+  it("entre dos que compiten se marca el mayor", () => {
+    const mayor = t("mayor", -0.3, ["PLATA", "ORO"]);
+    const menor = t("menor", -0.2, ["ORO"]);
+    expect([...tacticosMasConvenientes([menor, mayor])]).toEqual(["mayor"]);
+  });
+  it("sin rivales no se marca (no hay con qué comparar)", () => {
+    expect(tacticosMasConvenientes([t("solo", -0.3, ["PLATA"]), t("otro", -0.1, ["ORO"])]).size).toBe(0);
+  });
+  it("en un empate no se marca ninguno", () => {
+    expect(tacticosMasConvenientes([t("a", -0.2, ["PLATA"]), t("b", -0.2, ["PLATA"])]).size).toBe(0);
+  });
+  it("con varios rivales se marca solo el que supera a todos", () => {
+    const mayor = t("mayor", -0.3, ["PLATA", "ORO", "PLATINUM"]);
+    const medio = t("medio", -0.2, ["ORO", "PLATINUM"]);
+    const chico = t("chico", -0.15, ["PLATA"]);
+    expect([...tacticosMasConvenientes([chico, medio, mayor])]).toEqual(["mayor"]);
   });
 });

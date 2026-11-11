@@ -197,6 +197,18 @@ export function resolverTacticosSolapados(tacticos: DiscountPolicy[], orden: str
   return tacticos.filter((p) => kept.includes(p));
 }
 
+// RF-125: ids de los tácticos que merecen la marca "Opción más conveniente": los que COMPITEN con otros (comparten
+// algún plan) y tienen un descuento estrictamente mayor que todos sus rivales. Sin rivales no se marca (no hay con
+// qué comparar) y en un empate tampoco (ninguno es más conveniente que el otro).
+export function tacticosMasConvenientes(tacticos: DiscountPolicy[]): Set<string> {
+  const ids = new Set<string>();
+  for (const p of tacticos) {
+    const rivales = tacticos.filter((o) => o.id !== p.id && tacticosSolapan(p, o));
+    if (rivales.length > 0 && rivales.every((o) => magnitudPlan(p) > magnitudPlan(o))) ids.add(p.id);
+  }
+  return ids;
+}
+
 // Elegibilidad de un usuario individual seleccionable: excluye las 4 categorías
 // "automáticas" (ajuste hijos, segmento joven, descuento filial) — esas
 // nunca se muestran como checkbox, se aplican solas.
