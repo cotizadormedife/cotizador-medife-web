@@ -287,8 +287,9 @@ export default function QuoteForm({
             </button>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Lista a utilizar</div>
+            {/* RF-123: las listas van en su propio recuadro (el mismo estilo que cada integrante de "Grupo familiar") */}
+            <div style={{ border: "1px solid var(--border-disabled)", borderRadius: 10, padding: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Lista a utilizar</div>
               {(vigenciaSelection.actual || vigenciaSelection.siguiente) && (
                 <OptionGroup
                   name="vigencia"
